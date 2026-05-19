@@ -814,14 +814,14 @@ fail:
 ; weave_parse_function
 ;
 ; Parse:
-;   (fn name body)
-;   (fn name param body)
+;   (fn name body...)
+;   (fn name param body...)
 ;
 ; Stage 0 supports either zero parameters or one bare parameter name. Explicit
 ; return types and parameter lists are intentionally omitted for now.
 ;
 ; AST_FUNCTION:
-;   a = body node index
+;   a = body block node index
 ;   b = parameter name source start, or 0
 ;   c = parameter name source length, or 0
 ;   text_start/text_len = function name
@@ -860,14 +860,45 @@ capture_param:
 parse_body:
   %body_param_start = phi i64 [0, %capture_name], [%param_start, %capture_param]
   %body_param_len = phi i64 [0, %capture_name], [%param_len, %capture_param]
-  %body = call i64 @weave_parse_stmt(ptr %parser, ptr %ast)
-  %body_failed = icmp slt i64 %body, 0
-  br i1 %body_failed, label %fail, label %close
+  br label %body_loop
 
-close:
-  %close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
-  %close_failed = icmp ne i32 %close_status, 0
-  br i1 %close_failed, label %fail, label %make_node
+body_loop:
+  %body_first = phi i64 [-1, %parse_body], [%body_first_next, %after_body_stmt]
+  %body_last = phi i64 [-1, %parse_body], [%body_stmt, %after_body_stmt]
+  %body_count = phi i64 [0, %parse_body], [%body_count_next, %after_body_stmt]
+
+  %body_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %body_done = icmp eq i32 %body_kind, 2
+  br i1 %body_done, label %finish_body, label %parse_body_stmt
+
+parse_body_stmt:
+  %body_stmt = call i64 @weave_parse_stmt(ptr %parser, ptr %ast)
+  %body_stmt_failed = icmp slt i64 %body_stmt, 0
+  br i1 %body_stmt_failed, label %fail, label %after_body_stmt
+
+after_body_stmt:
+  %body_count_was_zero = icmp eq i64 %body_count, 0
+  %body_first_next = select i1 %body_count_was_zero, i64 %body_stmt, i64 %body_first
+  %body_count_next = add i64 %body_count, 1
+  br label %body_loop
+
+finish_body:
+  %empty_body = icmp eq i64 %body_count, 0
+  br i1 %empty_body, label %fail, label %consume_close
+
+consume_close:
+  call void @weave_parser_advance(ptr %parser)
+  %body = call i64 @weave_ast_push(
+    ptr %ast,
+    i32 3,
+    i64 %body_first,
+    i64 %body_last,
+    i64 %body_count,
+    i64 0,
+    i64 0
+  )
+  %body_failed = icmp slt i64 %body, 0
+  br i1 %body_failed, label %fail, label %make_node
 
 make_node:
   %node = call i64 @weave_ast_push(

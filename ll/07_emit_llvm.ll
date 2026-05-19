@@ -649,12 +649,118 @@ fail:
 }
 
 ; ----------------------------------------------------------------------------
+; weave_emit_let_stmt
+; ----------------------------------------------------------------------------
+
+define i32 @weave_emit_let_stmt(ptr %ctx, i64 %node_index) {
+entry:
+  %ast = call ptr @weave_emit_ast(ptr %ctx)
+  %expr_node = call i64 @weave_ast_a(ptr %ast, i64 %node_index)
+  %name_start = call i64 @weave_ast_text_start(ptr %ast, i64 %node_index)
+  %name_len = call i64 @weave_ast_text_len(ptr %ast, i64 %node_index)
+
+  %expr_kind = call i32 @weave_ast_kind(ptr %ast, i64 %expr_node)
+  %expr_is_name = icmp eq i32 %expr_kind, 13
+  br i1 %expr_is_name, label %emit_assignment, label %emit_value
+
+emit_value:
+  %value = call i64 @weave_emit_expr(ptr %ctx, i64 %expr_node)
+  %failed = icmp eq i64 %value, -9223372036854775808
+  br i1 %failed, label %fail, label %emit_assignment
+
+emit_assignment:
+  %value_for_let = phi i64 [0, %entry], [%value, %emit_value]
+  %s0 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.percent)
+  %s1 = call i32 @weave_emit_source_slice(ptr %ctx, i64 %name_start, i64 %name_len)
+  %s2 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.eq)
+  %s3 = call i32 @weave_emit_i32(ptr %ctx, i32 0)
+  %s4 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.comma_i32)
+  br i1 %expr_is_name, label %emit_name_operand, label %emit_value_operand
+
+emit_name_operand:
+  %s5_name = call i32 @weave_emit_expr_operand(ptr %ctx, i64 %expr_node)
+  br label %finish
+
+emit_value_operand:
+  %s5_value = call i32 @weave_emit_operand(ptr %ctx, i64 %value_for_let)
+  br label %finish
+
+finish:
+  %s5 = phi i32 [%s5_name, %emit_name_operand], [%s5_value, %emit_value_operand]
+  %s6 = call i32 @weave_emit_newline(ptr %ctx)
+  %s0_failed = icmp ne i32 %s0, 0
+  %s1_failed = icmp ne i32 %s1, 0
+  %s2_failed = icmp ne i32 %s2, 0
+  %s3_failed = icmp ne i32 %s3, 0
+  %s4_failed = icmp ne i32 %s4, 0
+  %s5_failed = icmp ne i32 %s5, 0
+  %s6_failed = icmp ne i32 %s6, 0
+  %bad01 = or i1 %s0_failed, %s1_failed
+  %bad23 = or i1 %s2_failed, %s3_failed
+  %bad45 = or i1 %s4_failed, %s5_failed
+  %bad0123 = or i1 %bad01, %bad23
+  %bad012345 = or i1 %bad0123, %bad45
+  %bad = or i1 %bad012345, %s6_failed
+  br i1 %bad, label %fail, label %success
+
+success:
+  ret i32 0
+
+fail:
+  ret i32 1
+}
+
+; ----------------------------------------------------------------------------
+; weave_emit_block
+; ----------------------------------------------------------------------------
+
+define i32 @weave_emit_block(ptr %ctx, i64 %node_index) {
+entry:
+  %ast = call ptr @weave_emit_ast(ptr %ctx)
+  %first = call i64 @weave_ast_a(ptr %ast, i64 %node_index)
+  %last = call i64 @weave_ast_b(ptr %ast, i64 %node_index)
+  br label %loop
+
+loop:
+  %i = phi i64 [%first, %entry], [%next_i, %after_node]
+  %done = icmp sgt i64 %i, %last
+  br i1 %done, label %success, label %check_node
+
+check_node:
+  %kind = call i32 @weave_ast_kind(ptr %ast, i64 %i)
+  %is_block = icmp eq i32 %kind, 3
+  br i1 %is_block, label %emit_node, label %check_return
+
+check_return:
+  %is_return = icmp eq i32 %kind, 4
+  br i1 %is_return, label %emit_node, label %check_let
+
+check_let:
+  %is_let = icmp eq i32 %kind, 7
+  br i1 %is_let, label %emit_node, label %after_node
+
+emit_node:
+  %status = call i32 @weave_emit_stmt(ptr %ctx, i64 %i)
+  %failed = icmp ne i32 %status, 0
+  br i1 %failed, label %fail, label %after_node
+
+after_node:
+  %next_i = add i64 %i, 1
+  br label %loop
+
+success:
+  ret i32 0
+
+fail:
+  ret i32 1
+}
+
+; ----------------------------------------------------------------------------
 ; weave_emit_stmt
 ; ----------------------------------------------------------------------------
 ;
-; Stage 0 initially emits return statements and expression statements.
-; Control-flow nodes are parsed already, but full emission can be admitted one
-; test at a time after the return/add/call ladder works.
+; Stage 0 emits blocks, let statements, return statements, and expression
+; statements. More statement kinds are admitted one ladder test at a time.
 
 
 define i32 @weave_emit_stmt(ptr %ctx, i64 %node_index) {
@@ -662,12 +768,28 @@ entry:
   %ast = call ptr @weave_emit_ast(ptr %ctx)
   %kind = call i32 @weave_ast_kind(ptr %ast, i64 %node_index)
 
+  %is_block = icmp eq i32 %kind, 3
+  br i1 %is_block, label %block_stmt, label %check_return
+
+check_return:
   %is_return = icmp eq i32 %kind, 4
-  br i1 %is_return, label %return_stmt, label %expr_stmt
+  br i1 %is_return, label %return_stmt, label %check_let
+
+check_let:
+  %is_let = icmp eq i32 %kind, 7
+  br i1 %is_let, label %let_stmt, label %expr_stmt
+
+block_stmt:
+  %block_status = call i32 @weave_emit_block(ptr %ctx, i64 %node_index)
+  ret i32 %block_status
 
 return_stmt:
   %status = call i32 @weave_emit_return_stmt(ptr %ctx, i64 %node_index)
   ret i32 %status
+
+let_stmt:
+  %let_status = call i32 @weave_emit_let_stmt(ptr %ctx, i64 %node_index)
+  ret i32 %let_status
 
 expr_stmt:
   %value = call i64 @weave_emit_expr(ptr %ctx, i64 %node_index)

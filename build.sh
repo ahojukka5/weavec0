@@ -195,6 +195,7 @@ main() {
   run_case "02_return_42" 42
   run_case "03_add" 42
   run_case "04_one_arg_function" 42
+  run_case "05_let_local" 42
 
   log "all bootstrap tests passed"
 }
