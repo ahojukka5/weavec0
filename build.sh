@@ -217,6 +217,7 @@ main() {
   run_case "24_buffer_like_smoke" 42
   run_case "25_ptr_params_call_i32" 42
   run_case "26_bool_return" 42
+  run_case "27_three_arg_function" 42
 
   log "all bootstrap tests passed"
 }
