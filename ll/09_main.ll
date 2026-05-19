@@ -6,7 +6,7 @@
 ;
 ; Interface:
 ;
-;     weavec0 input.weave output.ll
+;     weavec0 input.wir output.ll
 ;
 ; Stage 0 emits LLVM IR text only. It does not assemble, link, optimize, or run
 ; the generated program.

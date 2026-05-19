@@ -7,7 +7,7 @@
 ;
 ; Stage 0 has one responsibility:
 ;
-;     input.weave -> output.ll
+;     input.wir -> output.ll
 ;
 ; It does not assemble, link, optimize, expand packages, or implement the full
 ; future Weave language. It is the first small bridge toward self-hosting.
@@ -118,17 +118,17 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; TOKEN_WHILE   = 10
 ; TOKEN_LET     = 11
 ; TOKEN_SET     = 12
-; TOKEN_PLUS    = 13
-; TOKEN_MINUS   = 14
-; TOKEN_STAR    = 15
-; TOKEN_SLASH   = 16
-; TOKEN_EQ      = 17
-; TOKEN_EQEQ    = 18
-; TOKEN_NE      = 19
-; TOKEN_LT      = 20
-; TOKEN_LE      = 21
-; TOKEN_GT      = 22
-; TOKEN_GE      = 23
+; TOKEN_RESERVED_13 = 13
+; TOKEN_RESERVED_14 = 14
+; TOKEN_RESERVED_15 = 15
+; TOKEN_RESERVED_16 = 16
+; TOKEN_RESERVED_17 = 17
+; TOKEN_RESERVED_18 = 18
+; TOKEN_RESERVED_19 = 19
+; TOKEN_RESERVED_20 = 20
+; TOKEN_RESERVED_21 = 21
+; TOKEN_RESERVED_22 = 22
+; TOKEN_RESERVED_23 = 23
 ; TOKEN_BLOCK   = 24
 ; TOKEN_CORE_MODULE  = 25
 ; TOKEN_CORE_VERSION = 26
@@ -149,6 +149,8 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; TOKEN_CONST_STRING = 41
 ; TOKEN_ADD_I64      = 42
 ; TOKEN_MUL_I64      = 43
+; TOKEN_ADD_I32      = 44
+; TOKEN_PRINT        = 45
 ;
 ; Add new token kinds only when a bootstrap test requires them.
 
@@ -180,9 +182,9 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; ----------------------------------------------------------------------------
 ;
 ; BIN_ADD = 1
-; BIN_SUB = 2
-; BIN_MUL = 3
-; BIN_DIV = 4
+; BIN_RESERVED_2 = 2
+; BIN_RESERVED_3 = 3
+; BIN_RESERVED_4 = 4
 ; BIN_EQ  = 5
 ; BIN_NE  = 6
 ; BIN_LT  = 7

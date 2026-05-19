@@ -189,6 +189,8 @@ entry:
 @weave.kw.const_string = private unnamed_addr constant [13 x i8] c"const_string\00"
 @weave.kw.add_i64 = private unnamed_addr constant [8 x i8] c"add_i64\00"
 @weave.kw.mul_i64 = private unnamed_addr constant [8 x i8] c"mul_i64\00"
+@weave.kw.add_i32 = private unnamed_addr constant [8 x i8] c"add_i32\00"
+@weave.kw.print = private unnamed_addr constant [6 x i8] c"print\00"
 
 define i32 @weave_keyword_kind(ptr %text, i64 %length) {
 entry:
@@ -324,7 +326,17 @@ check_add_i64:
 check_mul_i64:
   %is_mul_i64 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.mul_i64, i64 7)
   %mul_i64_yes = icmp ne i32 %is_mul_i64, 0
-  br i1 %mul_i64_yes, label %return_mul_i64, label %return_ident
+  br i1 %mul_i64_yes, label %return_mul_i64, label %check_add_i32
+
+check_add_i32:
+  %is_add_i32 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.add_i32, i64 7)
+  %add_i32_yes = icmp ne i32 %is_add_i32, 0
+  br i1 %add_i32_yes, label %return_add_i32, label %check_print
+
+check_print:
+  %is_print = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.print, i64 5)
+  %print_yes = icmp ne i32 %is_print, 0
+  br i1 %print_yes, label %return_print, label %return_ident
 
 return_fn:
   ret i32 6
@@ -407,6 +419,12 @@ return_add_i64:
 return_mul_i64:
   ret i32 43
 
+return_add_i32:
+  ret i32 44
+
+return_print:
+  ret i32 45
+
 return_ident:
   ret i32 3
 }
@@ -416,7 +434,6 @@ return_ident:
 ; ----------------------------------------------------------------------------
 ;
 ; Scan a non-negative decimal integer starting at `start`.
-; Negative numbers are intentionally represented as unary/binary minus later.
 ;
 ; On success, appends TOKEN_INT and returns the index just after the literal.
 ; On failure, returns -1.
@@ -607,52 +624,18 @@ done:
 }
 
 ; ----------------------------------------------------------------------------
-; Single and two-character punctuation/operators
+; WIR punctuation
 ; ----------------------------------------------------------------------------
 
 
 define i64 @weave_lex_punctuation(ptr %source, ptr %tokens, i64 %index, i32 %ch) {
 entry:
-  %length = call i64 @weave_source_length(ptr %source)
-
   %is_lparen = icmp eq i32 %ch, 40
   br i1 %is_lparen, label %push_lparen, label %check_rparen
 
 check_rparen:
   %is_rparen = icmp eq i32 %ch, 41
-  br i1 %is_rparen, label %push_rparen, label %check_plus
-
-check_plus:
-  %is_plus = icmp eq i32 %ch, 43
-  br i1 %is_plus, label %push_plus, label %check_minus
-
-check_minus:
-  %is_minus = icmp eq i32 %ch, 45
-  br i1 %is_minus, label %push_minus, label %check_star
-
-check_star:
-  %is_star = icmp eq i32 %ch, 42
-  br i1 %is_star, label %push_star, label %check_slash
-
-check_slash:
-  %is_slash = icmp eq i32 %ch, 47
-  br i1 %is_slash, label %push_slash, label %check_equal
-
-check_equal:
-  %is_equal = icmp eq i32 %ch, 61
-  br i1 %is_equal, label %equal_or_eqeq, label %check_bang
-
-check_bang:
-  %is_bang = icmp eq i32 %ch, 33
-  br i1 %is_bang, label %bang_or_ne, label %check_lt
-
-check_lt:
-  %is_lt = icmp eq i32 %ch, 60
-  br i1 %is_lt, label %lt_or_le, label %check_gt
-
-check_gt:
-  %is_gt = icmp eq i32 %ch, 62
-  br i1 %is_gt, label %gt_or_ge, label %fail
+  br i1 %is_rparen, label %push_rparen, label %fail
 
 push_lparen:
   %s0 = call i32 @weave_tokens_push(ptr %tokens, i32 1, i64 %index, i64 1, i32 0)
@@ -662,107 +645,14 @@ push_rparen:
   %s1 = call i32 @weave_tokens_push(ptr %tokens, i32 2, i64 %index, i64 1, i32 0)
   br label %single_done
 
-push_plus:
-  %s2 = call i32 @weave_tokens_push(ptr %tokens, i32 13, i64 %index, i64 1, i32 0)
-  br label %single_done
-
-push_minus:
-  %s3 = call i32 @weave_tokens_push(ptr %tokens, i32 14, i64 %index, i64 1, i32 0)
-  br label %single_done
-
-push_star:
-  %s4 = call i32 @weave_tokens_push(ptr %tokens, i32 15, i64 %index, i64 1, i32 0)
-  br label %single_done
-
-push_slash:
-  %s5 = call i32 @weave_tokens_push(ptr %tokens, i32 16, i64 %index, i64 1, i32 0)
-  br label %single_done
-
-equal_or_eqeq:
-  %eq_next_index = add i64 %index, 1
-  %eq_has_next = icmp ult i64 %eq_next_index, %length
-  br i1 %eq_has_next, label %eq_read_next, label %push_eq
-
-eq_read_next:
-  %eq_next_ch = call i32 @weave_source_byte_at(ptr %source, i64 %eq_next_index)
-  %eqeq = icmp eq i32 %eq_next_ch, 61
-  br i1 %eqeq, label %push_eqeq, label %push_eq
-
-push_eq:
-  %s6 = call i32 @weave_tokens_push(ptr %tokens, i32 17, i64 %index, i64 1, i32 0)
-  br label %single_done
-
-push_eqeq:
-  %s7 = call i32 @weave_tokens_push(ptr %tokens, i32 18, i64 %index, i64 2, i32 0)
-  br label %double_done
-
-bang_or_ne:
-  %ne_next_index = add i64 %index, 1
-  %ne_has_next = icmp ult i64 %ne_next_index, %length
-  br i1 %ne_has_next, label %ne_read_next, label %fail
-
-ne_read_next:
-  %ne_next_ch = call i32 @weave_source_byte_at(ptr %source, i64 %ne_next_index)
-  %is_ne = icmp eq i32 %ne_next_ch, 61
-  br i1 %is_ne, label %push_ne, label %fail
-
-push_ne:
-  %s8 = call i32 @weave_tokens_push(ptr %tokens, i32 19, i64 %index, i64 2, i32 0)
-  br label %double_done
-
-lt_or_le:
-  %lt_next_index = add i64 %index, 1
-  %lt_has_next = icmp ult i64 %lt_next_index, %length
-  br i1 %lt_has_next, label %lt_read_next, label %push_lt
-
-lt_read_next:
-  %lt_next_ch = call i32 @weave_source_byte_at(ptr %source, i64 %lt_next_index)
-  %is_le = icmp eq i32 %lt_next_ch, 61
-  br i1 %is_le, label %push_le, label %push_lt
-
-push_lt:
-  %s9 = call i32 @weave_tokens_push(ptr %tokens, i32 20, i64 %index, i64 1, i32 0)
-  br label %single_done
-
-push_le:
-  %s10 = call i32 @weave_tokens_push(ptr %tokens, i32 21, i64 %index, i64 2, i32 0)
-  br label %double_done
-
-gt_or_ge:
-  %gt_next_index = add i64 %index, 1
-  %gt_has_next = icmp ult i64 %gt_next_index, %length
-  br i1 %gt_has_next, label %gt_read_next, label %push_gt
-
-gt_read_next:
-  %gt_next_ch = call i32 @weave_source_byte_at(ptr %source, i64 %gt_next_index)
-  %is_ge = icmp eq i32 %gt_next_ch, 61
-  br i1 %is_ge, label %push_ge, label %push_gt
-
-push_gt:
-  %s11 = call i32 @weave_tokens_push(ptr %tokens, i32 22, i64 %index, i64 1, i32 0)
-  br label %single_done
-
-push_ge:
-  %s12 = call i32 @weave_tokens_push(ptr %tokens, i32 23, i64 %index, i64 2, i32 0)
-  br label %double_done
-
 single_done:
-  %single_status = phi i32 [%s0, %push_lparen], [%s1, %push_rparen], [%s2, %push_plus], [%s3, %push_minus], [%s4, %push_star], [%s5, %push_slash], [%s6, %push_eq], [%s9, %push_lt], [%s11, %push_gt]
+  %single_status = phi i32 [%s0, %push_lparen], [%s1, %push_rparen]
   %single_failed = icmp ne i32 %single_status, 0
   br i1 %single_failed, label %fail, label %single_success
 
 single_success:
   %after_single = add i64 %index, 1
   ret i64 %after_single
-
-double_done:
-  %double_status = phi i32 [%s7, %push_eqeq], [%s8, %push_ne], [%s10, %push_le], [%s12, %push_ge]
-  %double_failed = icmp ne i32 %double_status, 0
-  br i1 %double_failed, label %fail, label %double_success
-
-double_success:
-  %after_double = add i64 %index, 2
-  ret i64 %after_double
 
 fail:
   ret i64 -1

@@ -74,7 +74,7 @@ entry:
 ;
 ; Interface:
 ;
-;     weavec0 input.weave output.ll
+;     weavec0 input.wir output.ll
 ;
 ; Returns:
 ;   0 on success

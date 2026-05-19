@@ -166,7 +166,7 @@ declare ptr @weave_rt_stdout()
 @weave.str.read_mode = private unnamed_addr constant [3 x i8] c"rb\00"
 @weave.str.write_mode = private unnamed_addr constant [3 x i8] c"wb\00"
 
-@weave.str.usage = private unnamed_addr constant [38 x i8] c"usage: weavec0 input.weave output.ll\0A\00"
+@weave.str.usage = private unnamed_addr constant [36 x i8] c"usage: weavec0 input.wir output.ll\0A\00"
 
 @weave.str.err_read = private unnamed_addr constant [28 x i8] c"error: could not read file\0A\00"
 @weave.str.err_write = private unnamed_addr constant [29 x i8] c"error: could not write file\0A\00"
