@@ -1,0 +1,24 @@
+(core-module
+  (core-version 1)
+
+  (decls
+
+    (fn main
+      (params)
+      (returns i32)
+
+      (body
+        (if
+          (eq_i64
+            (sub_i64
+              (const_i64 50)
+              (const_i64 8))
+            (const_i64 42))
+
+          (then
+            (return
+              (const_i32 42)))
+
+          (else
+            (return
+              (const_i32 0))))))))

@@ -182,7 +182,11 @@ check_add_i64:
 
 check_mul_i64:
   %is_mul_i64 = icmp eq i32 %kind, 43
-  br i1 %is_mul_i64, label %mul_i64, label %check_lt_i64
+  br i1 %is_mul_i64, label %mul_i64, label %check_sub_i64
+
+check_sub_i64:
+  %is_sub_i64 = icmp eq i32 %kind, 84
+  br i1 %is_sub_i64, label %sub_i64, label %check_lt_i64
 
 check_lt_i64:
   %is_lt_i64 = icmp eq i32 %kind, 46
@@ -194,7 +198,11 @@ check_le_i64:
 
 check_ne_i64:
   %is_ne_i64 = icmp eq i32 %kind, 48
-  br i1 %is_ne_i64, label %ne_i64, label %check_and_bool
+  br i1 %is_ne_i64, label %ne_i64, label %check_eq_i64
+
+check_eq_i64:
+  %is_eq_i64 = icmp eq i32 %kind, 85
+  br i1 %is_eq_i64, label %eq_i64, label %check_and_bool
 
 check_and_bool:
   %is_and_bool = icmp eq i32 %kind, 52
@@ -252,6 +260,9 @@ add_i64:
 mul_i64:
   ret i32 12
 
+sub_i64:
+  ret i32 27
+
 lt_i64:
   ret i32 13
 
@@ -260,6 +271,9 @@ le_i64:
 
 ne_i64:
   ret i32 15
+
+eq_i64:
+  ret i32 28
 
 and_bool:
   ret i32 16

@@ -190,11 +190,13 @@ entry:
 @weave.kw.const_string_ptr = private unnamed_addr constant [17 x i8] c"const_string_ptr\00"
 @weave.kw.add_i64 = private unnamed_addr constant [8 x i8] c"add_i64\00"
 @weave.kw.mul_i64 = private unnamed_addr constant [8 x i8] c"mul_i64\00"
+@weave.kw.sub_i64 = private unnamed_addr constant [8 x i8] c"sub_i64\00"
 @weave.kw.add_i32 = private unnamed_addr constant [8 x i8] c"add_i32\00"
 @weave.kw.print = private unnamed_addr constant [6 x i8] c"print\00"
 @weave.kw.lt_i64 = private unnamed_addr constant [7 x i8] c"lt_i64\00"
 @weave.kw.le_i64 = private unnamed_addr constant [7 x i8] c"le_i64\00"
 @weave.kw.ne_i64 = private unnamed_addr constant [7 x i8] c"ne_i64\00"
+@weave.kw.eq_i64 = private unnamed_addr constant [7 x i8] c"eq_i64\00"
 @weave.kw.const_bool = private unnamed_addr constant [11 x i8] c"const_bool\00"
 @weave.kw.true = private unnamed_addr constant [5 x i8] c"true\00"
 @weave.kw.false = private unnamed_addr constant [6 x i8] c"false\00"
@@ -369,7 +371,12 @@ check_add_i64:
 check_mul_i64:
   %is_mul_i64 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.mul_i64, i64 7)
   %mul_i64_yes = icmp ne i32 %is_mul_i64, 0
-  br i1 %mul_i64_yes, label %return_mul_i64, label %check_add_i32
+  br i1 %mul_i64_yes, label %return_mul_i64, label %check_sub_i64
+
+check_sub_i64:
+  %is_sub_i64 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.sub_i64, i64 7)
+  %sub_i64_yes = icmp ne i32 %is_sub_i64, 0
+  br i1 %sub_i64_yes, label %return_sub_i64, label %check_add_i32
 
 check_add_i32:
   %is_add_i32 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.add_i32, i64 7)
@@ -394,7 +401,12 @@ check_le_i64:
 check_ne_i64:
   %is_ne_i64 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.ne_i64, i64 6)
   %ne_i64_yes = icmp ne i32 %is_ne_i64, 0
-  br i1 %ne_i64_yes, label %return_ne_i64, label %check_const_bool
+  br i1 %ne_i64_yes, label %return_ne_i64, label %check_eq_i64
+
+check_eq_i64:
+  %is_eq_i64 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.eq_i64, i64 6)
+  %eq_i64_yes = icmp ne i32 %is_eq_i64, 0
+  br i1 %eq_i64_yes, label %return_eq_i64, label %check_const_bool
 
 check_const_bool:
   %is_const_bool = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.const_bool, i64 10)
@@ -766,6 +778,12 @@ return_cast_i32_to_i64:
 
 return_const_string_ptr:
   ret i32 83
+
+return_sub_i64:
+  ret i32 84
+
+return_eq_i64:
+  ret i32 85
 
 return_ident:
   ret i32 3
