@@ -815,13 +815,15 @@ fail:
 ;
 ; Parse:
 ;   (fn name body)
+;   (fn name param body)
 ;
-; Stage 0 intentionally omits parameter lists and explicit return types at the
-; first step. All functions are emitted as `i32 ()` until the bootstrap ladder
-; proves this bridge works.
+; Stage 0 supports either zero parameters or one bare parameter name. Explicit
+; return types and parameter lists are intentionally omitted for now.
 ;
 ; AST_FUNCTION:
 ;   a = body node index
+;   b = parameter name source start, or 0
+;   c = parameter name source length, or 0
 ;   text_start/text_len = function name
 ; ----------------------------------------------------------------------------
 
@@ -845,7 +847,19 @@ capture_name:
   %name_start = call i64 @weave_parser_current_start(ptr %parser)
   %name_len = call i64 @weave_parser_current_length(ptr %parser)
   call void @weave_parser_advance(ptr %parser)
+  %after_name_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %has_param = icmp eq i32 %after_name_kind, 3
+  br i1 %has_param, label %capture_param, label %parse_body
 
+capture_param:
+  %param_start = call i64 @weave_parser_current_start(ptr %parser)
+  %param_len = call i64 @weave_parser_current_length(ptr %parser)
+  call void @weave_parser_advance(ptr %parser)
+  br label %parse_body
+
+parse_body:
+  %body_param_start = phi i64 [0, %capture_name], [%param_start, %capture_param]
+  %body_param_len = phi i64 [0, %capture_name], [%param_len, %capture_param]
   %body = call i64 @weave_parse_stmt(ptr %parser, ptr %ast)
   %body_failed = icmp slt i64 %body, 0
   br i1 %body_failed, label %fail, label %close
@@ -860,8 +874,8 @@ make_node:
     ptr %ast,
     i32 2,
     i64 %body,
-    i64 0,
-    i64 0,
+    i64 %body_param_start,
+    i64 %body_param_len,
     i64 %name_start,
     i64 %name_len
   )
