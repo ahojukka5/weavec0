@@ -194,7 +194,15 @@ check_le_i64:
 
 check_ne_i64:
   %is_ne_i64 = icmp eq i32 %kind, 48
-  br i1 %is_ne_i64, label %ne_i64, label %none
+  br i1 %is_ne_i64, label %ne_i64, label %check_and_bool
+
+check_and_bool:
+  %is_and_bool = icmp eq i32 %kind, 52
+  br i1 %is_and_bool, label %and_bool, label %check_or_bool
+
+check_or_bool:
+  %is_or_bool = icmp eq i32 %kind, 53
+  br i1 %is_or_bool, label %or_bool, label %none
 
 add:
   ret i32 1
@@ -216,6 +224,12 @@ le_i64:
 
 ne_i64:
   ret i32 15
+
+and_bool:
+  ret i32 16
+
+or_bool:
+  ret i32 17
 
 none:
   ret i32 0
@@ -292,7 +306,11 @@ make_binary:
 
 check_const_i32:
   %is_const_i32 = icmp eq i32 %head_kind, 31
-  br i1 %is_const_i32, label %parse_const_i32, label %check_const_i64
+  br i1 %is_const_i32, label %parse_const_i32, label %check_const_bool
+
+check_const_bool:
+  %is_const_bool = icmp eq i32 %head_kind, 49
+  br i1 %is_const_bool, label %parse_const_bool, label %check_const_i64
 
 check_const_i64:
   %is_const_i64 = icmp eq i32 %head_kind, 38
@@ -344,7 +362,15 @@ check_le_i64:
 
 check_ne_i64:
   %is_ne_i64 = icmp eq i32 %head_kind, 48
-  br i1 %is_ne_i64, label %parse_ne_i64, label %check_print
+  br i1 %is_ne_i64, label %parse_ne_i64, label %check_and_bool
+
+check_and_bool:
+  %is_and_bool = icmp eq i32 %head_kind, 52
+  br i1 %is_and_bool, label %parse_and_bool, label %check_or_bool
+
+check_or_bool:
+  %is_or_bool = icmp eq i32 %head_kind, 53
+  br i1 %is_or_bool, label %parse_or_bool, label %check_print
 
 check_print:
   %is_print = icmp eq i32 %head_kind, 45
@@ -366,6 +392,36 @@ capture_const_i32:
 make_const_i32:
   %const_node = call i64 @weave_ast_make_integer_literal(ptr %ast, i32 %const_value)
   ret i64 %const_node
+
+parse_const_bool:
+  call void @weave_parser_advance(ptr %parser)
+  %bool_value_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %bool_is_true = icmp eq i32 %bool_value_kind, 50
+  br i1 %bool_is_true, label %capture_bool_true, label %check_bool_false
+
+check_bool_false:
+  %bool_is_false = icmp eq i32 %bool_value_kind, 51
+  br i1 %bool_is_false, label %capture_bool_false, label %fail
+
+capture_bool_true:
+  call void @weave_parser_advance(ptr %parser)
+  %true_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %true_close_failed = icmp ne i32 %true_close_status, 0
+  br i1 %true_close_failed, label %fail, label %make_bool_true
+
+make_bool_true:
+  %true_node = call i64 @weave_ast_make_integer_literal(ptr %ast, i32 1)
+  ret i64 %true_node
+
+capture_bool_false:
+  call void @weave_parser_advance(ptr %parser)
+  %false_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %false_close_failed = icmp ne i32 %false_close_status, 0
+  br i1 %false_close_failed, label %fail, label %make_bool_false
+
+make_bool_false:
+  %false_node = call i64 @weave_ast_make_integer_literal(ptr %ast, i32 0)
+  ret i64 %false_node
 
 parse_const_i64:
   call void @weave_parser_advance(ptr %parser)
@@ -623,6 +679,12 @@ parse_le_i64:
   br label %parse_binary
 
 parse_ne_i64:
+  br label %parse_binary
+
+parse_and_bool:
+  br label %parse_binary
+
+parse_or_bool:
   br label %parse_binary
 
 parse_print:

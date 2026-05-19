@@ -1,0 +1,24 @@
+(core-module
+  (core-version 1)
+
+  (decls
+
+    (fn main
+      (params)
+      (returns i32)
+
+      (body
+        (if
+          (and_bool
+            (const_bool true)
+            (or_bool
+              (const_bool false)
+              (const_bool true)))
+
+          (then
+            (return
+              (const_i32 42)))
+
+          (else
+            (return
+              (const_i32 0))))))))

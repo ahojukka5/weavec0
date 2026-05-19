@@ -194,6 +194,11 @@ entry:
 @weave.kw.lt_i64 = private unnamed_addr constant [7 x i8] c"lt_i64\00"
 @weave.kw.le_i64 = private unnamed_addr constant [7 x i8] c"le_i64\00"
 @weave.kw.ne_i64 = private unnamed_addr constant [7 x i8] c"ne_i64\00"
+@weave.kw.const_bool = private unnamed_addr constant [11 x i8] c"const_bool\00"
+@weave.kw.true = private unnamed_addr constant [5 x i8] c"true\00"
+@weave.kw.false = private unnamed_addr constant [6 x i8] c"false\00"
+@weave.kw.and_bool = private unnamed_addr constant [9 x i8] c"and_bool\00"
+@weave.kw.or_bool = private unnamed_addr constant [8 x i8] c"or_bool\00"
 
 define i32 @weave_keyword_kind(ptr %text, i64 %length) {
 entry:
@@ -354,7 +359,32 @@ check_le_i64:
 check_ne_i64:
   %is_ne_i64 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.ne_i64, i64 6)
   %ne_i64_yes = icmp ne i32 %is_ne_i64, 0
-  br i1 %ne_i64_yes, label %return_ne_i64, label %return_ident
+  br i1 %ne_i64_yes, label %return_ne_i64, label %check_const_bool
+
+check_const_bool:
+  %is_const_bool = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.const_bool, i64 10)
+  %const_bool_yes = icmp ne i32 %is_const_bool, 0
+  br i1 %const_bool_yes, label %return_const_bool, label %check_true
+
+check_true:
+  %is_true = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.true, i64 4)
+  %true_yes = icmp ne i32 %is_true, 0
+  br i1 %true_yes, label %return_true, label %check_false
+
+check_false:
+  %is_false = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.false, i64 5)
+  %false_yes = icmp ne i32 %is_false, 0
+  br i1 %false_yes, label %return_false, label %check_and_bool
+
+check_and_bool:
+  %is_and_bool = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.and_bool, i64 8)
+  %and_bool_yes = icmp ne i32 %is_and_bool, 0
+  br i1 %and_bool_yes, label %return_and_bool, label %check_or_bool
+
+check_or_bool:
+  %is_or_bool = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.or_bool, i64 7)
+  %or_bool_yes = icmp ne i32 %is_or_bool, 0
+  br i1 %or_bool_yes, label %return_or_bool, label %return_ident
 
 return_fn:
   ret i32 6
@@ -451,6 +481,21 @@ return_le_i64:
 
 return_ne_i64:
   ret i32 48
+
+return_const_bool:
+  ret i32 49
+
+return_true:
+  ret i32 50
+
+return_false:
+  ret i32 51
+
+return_and_bool:
+  ret i32 52
+
+return_or_bool:
+  ret i32 53
 
 return_ident:
   ret i32 3

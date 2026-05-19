@@ -204,6 +204,7 @@ main() {
   run_case "11_const_i64" 42
   run_case "12_i64_arithmetic" 42
   run_case "13_i64_comparisons" 42
+  run_case "14_bool_ops" 42
 
   log "all bootstrap tests passed"
 }
