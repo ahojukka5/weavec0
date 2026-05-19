@@ -215,6 +215,8 @@ entry:
 @weave.kw.call_i64 = private unnamed_addr constant [9 x i8] c"call_i64\00"
 @weave.kw.return_void = private unnamed_addr constant [12 x i8] c"return_void\00"
 @weave.kw.mod_i32 = private unnamed_addr constant [8 x i8] c"mod_i32\00"
+@weave.kw.load_ptr = private unnamed_addr constant [9 x i8] c"load_ptr\00"
+@weave.kw.store_ptr = private unnamed_addr constant [10 x i8] c"store_ptr\00"
 
 define i32 @weave_keyword_kind(ptr %text, i64 %length) {
 entry:
@@ -480,7 +482,17 @@ check_return_void:
 check_mod_i32:
   %is_mod_i32 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.mod_i32, i64 7)
   %mod_i32_yes = icmp ne i32 %is_mod_i32, 0
-  br i1 %mod_i32_yes, label %return_mod_i32, label %return_ident
+  br i1 %mod_i32_yes, label %return_mod_i32, label %check_load_ptr
+
+check_load_ptr:
+  %is_load_ptr = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.load_ptr, i64 8)
+  %load_ptr_yes = icmp ne i32 %is_load_ptr, 0
+  br i1 %load_ptr_yes, label %return_load_ptr, label %check_store_ptr
+
+check_store_ptr:
+  %is_store_ptr = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.store_ptr, i64 9)
+  %store_ptr_yes = icmp ne i32 %is_store_ptr, 0
+  br i1 %store_ptr_yes, label %return_store_ptr, label %return_ident
 
 return_fn:
   ret i32 6
@@ -640,6 +652,12 @@ return_return_void:
 
 return_mod_i32:
   ret i32 69
+
+return_load_ptr:
+  ret i32 70
+
+return_store_ptr:
+  ret i32 71
 
 return_ident:
   ret i32 3
