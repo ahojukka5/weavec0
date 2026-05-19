@@ -183,6 +183,9 @@ entry:
 @weave.kw.local_get = private unnamed_addr constant [10 x i8] c"local_get\00"
 @weave.kw.then = private unnamed_addr constant [5 x i8] c"then\00"
 @weave.kw.lt_i32 = private unnamed_addr constant [7 x i8] c"lt_i32\00"
+@weave.kw.const_i64 = private unnamed_addr constant [10 x i8] c"const_i64\00"
+@weave.kw.i64 = private unnamed_addr constant [4 x i8] c"i64\00"
+@weave.kw.cast_i64_to_i32 = private unnamed_addr constant [16 x i8] c"cast_i64_to_i32\00"
 @weave.kw.const_string = private unnamed_addr constant [13 x i8] c"const_string\00"
 
 define i32 @weave_keyword_kind(ptr %text, i64 %length) {
@@ -289,7 +292,22 @@ check_then:
 check_lt_i32:
   %is_lt_i32 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.lt_i32, i64 6)
   %lt_i32_yes = icmp ne i32 %is_lt_i32, 0
-  br i1 %lt_i32_yes, label %return_lt_i32, label %check_const_string
+  br i1 %lt_i32_yes, label %return_lt_i32, label %check_const_i64
+
+check_const_i64:
+  %is_const_i64 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.const_i64, i64 9)
+  %const_i64_yes = icmp ne i32 %is_const_i64, 0
+  br i1 %const_i64_yes, label %return_const_i64, label %check_i64
+
+check_i64:
+  %is_i64 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.i64, i64 3)
+  %i64_yes = icmp ne i32 %is_i64, 0
+  br i1 %i64_yes, label %return_i64, label %check_cast_i64_to_i32
+
+check_cast_i64_to_i32:
+  %is_cast_i64_to_i32 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.cast_i64_to_i32, i64 15)
+  %cast_i64_to_i32_yes = icmp ne i32 %is_cast_i64_to_i32, 0
+  br i1 %cast_i64_to_i32_yes, label %return_cast_i64_to_i32, label %check_const_string
 
 check_const_string:
   %is_const_string = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.const_string, i64 12)
@@ -359,8 +377,17 @@ return_then:
 return_lt_i32:
   ret i32 37
 
-return_const_string:
+return_const_i64:
   ret i32 38
+
+return_i64:
+  ret i32 39
+
+return_cast_i64_to_i32:
+  ret i32 40
+
+return_const_string:
+  ret i32 41
 
 return_ident:
   ret i32 3
