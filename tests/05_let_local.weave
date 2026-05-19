@@ -1,3 +1,0 @@
-(fn main
-  (let x 40)
-  (return (+ x 2)))

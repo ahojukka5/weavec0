@@ -373,7 +373,11 @@ check_param_get:
 
 check_call_i32:
   %is_call_i32 = icmp eq i32 %head_kind, 34
-  br i1 %is_call_i32, label %parse_call_i32, label %parse_call_head
+  br i1 %is_call_i32, label %parse_call_i32, label %check_local_get
+
+check_local_get:
+  %is_local_get = icmp eq i32 %head_kind, 35
+  br i1 %is_local_get, label %parse_local_get, label %parse_call_head
 
 parse_const_i32:
   call void @weave_parser_advance(ptr %parser)
@@ -457,6 +461,28 @@ make_call_i32:
     i64 %call_i32_name_len
   )
   ret i64 %call_i32_node
+
+parse_local_get:
+  call void @weave_parser_advance(ptr %parser)
+  %local_name_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %local_name_is_ident = icmp eq i32 %local_name_kind, 3
+  br i1 %local_name_is_ident, label %capture_local_get, label %fail
+
+capture_local_get:
+  %local_name_start = call i64 @weave_parser_current_start(ptr %parser)
+  %local_name_len = call i64 @weave_parser_current_length(ptr %parser)
+  call void @weave_parser_advance(ptr %parser)
+  %local_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %local_close_failed = icmp ne i32 %local_close_status, 0
+  br i1 %local_close_failed, label %fail, label %make_local_get
+
+make_local_get:
+  %local_node = call i64 @weave_ast_make_name_expr(
+    ptr %ast,
+    i64 %local_name_start,
+    i64 %local_name_len
+  )
+  ret i64 %local_node
 
 parse_call_head:
   %is_ident = icmp eq i32 %head_kind, 3
@@ -574,9 +600,10 @@ fail:
 ;
 ; Parse:
 ;   (let name expr)
+;   (let name i32 expr)
 ;
-; The variable type is intentionally omitted in Stage 0. The emitter treats all
-; locals as i32 for now. This keeps the bridge small.
+; The explicit i32 annotation is accepted for WIR fixtures, but the AST still
+; only records the initializer expression and the local name.
 ; ----------------------------------------------------------------------------
 
 define i64 @weave_parse_let_stmt(ptr %parser, ptr %ast) {
@@ -599,6 +626,15 @@ capture_name:
   %name_start = call i64 @weave_parser_current_start(ptr %parser)
   %name_len = call i64 @weave_parser_current_length(ptr %parser)
   call void @weave_parser_advance(ptr %parser)
+  %type_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %has_type = icmp eq i32 %type_kind, 32
+  br i1 %has_type, label %consume_type, label %parse_expr
+
+consume_type:
+  call void @weave_parser_advance(ptr %parser)
+  br label %parse_expr
+
+parse_expr:
   %expr = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
   %expr_failed = icmp slt i64 %expr, 0
   br i1 %expr_failed, label %fail, label %close
