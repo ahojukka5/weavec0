@@ -351,7 +351,11 @@ check_param_get:
 
 check_call_i32:
   %is_call_i32 = icmp eq i32 %head_kind, 34
-  br i1 %is_call_i32, label %parse_call_i32, label %check_call_i64
+  br i1 %is_call_i32, label %parse_call_i32, label %check_call_bool
+
+check_call_bool:
+  %is_call_bool = icmp eq i32 %head_kind, 73
+  br i1 %is_call_bool, label %parse_call_bool, label %check_call_i64
 
 check_call_i64:
   %is_call_i64 = icmp eq i32 %head_kind, 67
@@ -602,6 +606,50 @@ make_call_i32:
     i64 %call_i32_name_len
   )
   ret i64 %call_i32_node
+
+parse_call_bool:
+  call void @weave_parser_advance(ptr %parser)
+  %call_bool_name_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %call_bool_name_is_ident = icmp eq i32 %call_bool_name_kind, 3
+  br i1 %call_bool_name_is_ident, label %capture_call_bool_name, label %fail
+
+capture_call_bool_name:
+  %call_bool_name_start = call i64 @weave_parser_current_start(ptr %parser)
+  %call_bool_name_len = call i64 @weave_parser_current_length(ptr %parser)
+  call void @weave_parser_advance(ptr %parser)
+
+  %call_bool_arg = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %call_bool_arg_failed = icmp slt i64 %call_bool_arg, 0
+  br i1 %call_bool_arg_failed, label %fail, label %call_bool_maybe_second_arg
+
+call_bool_maybe_second_arg:
+  %call_bool_after_arg_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %call_bool_has_second_arg = icmp ne i32 %call_bool_after_arg_kind, 2
+  br i1 %call_bool_has_second_arg, label %call_bool_parse_second_arg, label %call_bool_close
+
+call_bool_parse_second_arg:
+  %call_bool_arg2 = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %call_bool_arg2_failed = icmp slt i64 %call_bool_arg2, 0
+  br i1 %call_bool_arg2_failed, label %fail, label %call_bool_close
+
+call_bool_close:
+  %call_bool_arg2_value = phi i64 [-1, %call_bool_maybe_second_arg], [%call_bool_arg2, %call_bool_parse_second_arg]
+  %call_bool_arg_count = phi i64 [1, %call_bool_maybe_second_arg], [2, %call_bool_parse_second_arg]
+  %call_bool_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %call_bool_close_failed = icmp ne i32 %call_bool_close_status, 0
+  br i1 %call_bool_close_failed, label %fail, label %make_call_bool
+
+make_call_bool:
+  %call_bool_node = call i64 @weave_ast_push(
+    ptr %ast,
+    i32 31,
+    i64 %call_bool_arg,
+    i64 %call_bool_arg2_value,
+    i64 %call_bool_arg_count,
+    i64 %call_bool_name_start,
+    i64 %call_bool_name_len
+  )
+  ret i64 %call_bool_node
 
 parse_call_i64:
   call void @weave_parser_advance(ptr %parser)
@@ -1139,8 +1187,10 @@ capture_name:
   %is_i32 = icmp eq i32 %type_kind, 32
   %is_i64 = icmp eq i32 %type_kind, 39
   %is_ptr = icmp eq i32 %type_kind, 58
+  %is_bool = icmp eq i32 %type_kind, 72
   %valid_int_type = or i1 %is_i32, %is_i64
-  %valid_type = or i1 %valid_int_type, %is_ptr
+  %valid_ptr_type = or i1 %valid_int_type, %is_ptr
+  %valid_type = or i1 %valid_ptr_type, %is_bool
   br i1 %valid_type, label %consume_type, label %fail
 
 consume_type:
@@ -1864,79 +1914,47 @@ capture_name:
   %name_start = call i64 @weave_parser_current_start(ptr %parser)
   %name_len = call i64 @weave_parser_current_length(ptr %parser)
   call void @weave_parser_advance(ptr %parser)
-  %params_open_status = call i32 @weave_parser_expect(ptr %parser, i32 1)
-  %params_open_failed = icmp ne i32 %params_open_status, 0
-  br i1 %params_open_failed, label %fail, label %params_head
+  br label %skip_tail
 
-params_head:
-  %params_status = call i32 @weave_parser_expect(ptr %parser, i32 28)
-  %params_failed = icmp ne i32 %params_status, 0
-  br i1 %params_failed, label %fail, label %param_open
+skip_tail:
+  %depth = phi i64 [1, %capture_name], [%depth_next, %after_token]
+  %kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %is_eof = icmp eq i32 %kind, 0
+  br i1 %is_eof, label %fail, label %classify_token
 
-param_open:
-  %param_open_status = call i32 @weave_parser_expect(ptr %parser, i32 1)
-  %param_open_failed = icmp ne i32 %param_open_status, 0
-  br i1 %param_open_failed, label %fail, label %param_name
+classify_token:
+  %is_open = icmp eq i32 %kind, 1
+  br i1 %is_open, label %open_token, label %check_close_token
 
-param_name:
-  %param_name_status = call i32 @weave_parser_expect(ptr %parser, i32 3)
-  %param_name_failed = icmp ne i32 %param_name_status, 0
-  br i1 %param_name_failed, label %fail, label %param_type
+check_close_token:
+  %is_close = icmp eq i32 %kind, 2
+  br i1 %is_close, label %close_token, label %plain_token
 
-param_type:
-  %param_type_kind = call i32 @weave_parser_current_kind(ptr %parser)
-  %param_is_i64 = icmp eq i32 %param_type_kind, 39
-  %param_is_ptr = icmp eq i32 %param_type_kind, 58
-  %param_type_ok = or i1 %param_is_i64, %param_is_ptr
-  br i1 %param_type_ok, label %consume_param_type, label %fail
-
-consume_param_type:
+open_token:
+  %depth_open = add i64 %depth, 1
   call void @weave_parser_advance(ptr %parser)
-  %param_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
-  %param_close_failed = icmp ne i32 %param_close_status, 0
-  br i1 %param_close_failed, label %fail, label %params_close
+  br label %after_token
 
-params_close:
-  %params_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
-  %params_close_failed = icmp ne i32 %params_close_status, 0
-  br i1 %params_close_failed, label %fail, label %returns_open
-
-returns_open:
-  %returns_open_status = call i32 @weave_parser_expect(ptr %parser, i32 1)
-  %returns_open_failed = icmp ne i32 %returns_open_status, 0
-  br i1 %returns_open_failed, label %fail, label %returns_head
-
-returns_head:
-  %returns_status = call i32 @weave_parser_expect(ptr %parser, i32 29)
-  %returns_failed = icmp ne i32 %returns_status, 0
-  br i1 %returns_failed, label %fail, label %return_type
-
-return_type:
-  %return_type_kind = call i32 @weave_parser_current_kind(ptr %parser)
-  %return_is_ptr = icmp eq i32 %return_type_kind, 58
-  %return_is_void = icmp eq i32 %return_type_kind, 59
-  %return_type_ok = or i1 %return_is_ptr, %return_is_void
-  br i1 %return_type_ok, label %consume_return_type, label %fail
-
-consume_return_type:
+close_token:
+  %depth_close = sub i64 %depth, 1
   call void @weave_parser_advance(ptr %parser)
-  %returns_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
-  %returns_close_failed = icmp ne i32 %returns_close_status, 0
-  br i1 %returns_close_failed, label %fail, label %close_extern
+  %done = icmp eq i64 %depth_close, 0
+  br i1 %done, label %make_node, label %after_token
 
-close_extern:
-  %close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
-  %close_failed = icmp ne i32 %close_status, 0
-  br i1 %close_failed, label %fail, label %make_node
+plain_token:
+  call void @weave_parser_advance(ptr %parser)
+  br label %after_token
+
+after_token:
+  %depth_next = phi i64 [%depth_open, %open_token], [%depth_close, %close_token], [%depth, %plain_token]
+  br label %skip_tail
 
 make_node:
-  %param_type_wide = sext i32 %param_type_kind to i64
-  %return_type_wide = sext i32 %return_type_kind to i64
   %node = call i64 @weave_ast_push(
     ptr %ast,
     i32 17,
-    i64 %param_type_wide,
-    i64 %return_type_wide,
+    i64 0,
+    i64 0,
     i64 0,
     i64 %name_start,
     i64 %name_len
@@ -2015,8 +2033,10 @@ capture_param1_name:
   %param1_type_i32 = icmp eq i32 %param1_type_kind, 32
   %param1_type_i64 = icmp eq i32 %param1_type_kind, 39
   %param1_type_ptr = icmp eq i32 %param1_type_kind, 58
+  %param1_type_bool = icmp eq i32 %param1_type_kind, 72
   %param1_type_int = or i1 %param1_type_i32, %param1_type_i64
-  %param1_type_ok = or i1 %param1_type_int, %param1_type_ptr
+  %param1_type_value = or i1 %param1_type_int, %param1_type_ptr
+  %param1_type_ok = or i1 %param1_type_value, %param1_type_bool
   br i1 %param1_type_ok, label %consume_param1_type, label %fail
 
 consume_param1_type:
@@ -2051,8 +2071,10 @@ capture_param2_name:
   %param2_type_i32 = icmp eq i32 %param2_type_kind, 32
   %param2_type_i64 = icmp eq i32 %param2_type_kind, 39
   %param2_type_ptr = icmp eq i32 %param2_type_kind, 58
+  %param2_type_bool = icmp eq i32 %param2_type_kind, 72
   %param2_type_int = or i1 %param2_type_i32, %param2_type_i64
-  %param2_type_ok = or i1 %param2_type_int, %param2_type_ptr
+  %param2_type_value = or i1 %param2_type_int, %param2_type_ptr
+  %param2_type_ok = or i1 %param2_type_value, %param2_type_bool
   br i1 %param2_type_ok, label %consume_param2_type, label %fail
 
 consume_param2_type:
@@ -2089,9 +2111,11 @@ returns_type:
   %return_is_i64 = icmp eq i32 %return_type_kind, 39
   %return_is_ptr = icmp eq i32 %return_type_kind, 58
   %return_is_void = icmp eq i32 %return_type_kind, 59
+  %return_is_bool = icmp eq i32 %return_type_kind, 72
   %return_int_ok = or i1 %return_is_i32, %return_is_i64
   %return_value_ok = or i1 %return_int_ok, %return_is_ptr
-  %return_type_ok = or i1 %return_value_ok, %return_is_void
+  %return_value_bool_ok = or i1 %return_value_ok, %return_is_bool
+  %return_type_ok = or i1 %return_value_bool_ok, %return_is_void
   br i1 %return_type_ok, label %consume_return_type, label %fail
 
 consume_return_type:

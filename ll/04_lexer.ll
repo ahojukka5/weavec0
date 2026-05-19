@@ -217,6 +217,8 @@ entry:
 @weave.kw.mod_i32 = private unnamed_addr constant [8 x i8] c"mod_i32\00"
 @weave.kw.load_ptr = private unnamed_addr constant [9 x i8] c"load_ptr\00"
 @weave.kw.store_ptr = private unnamed_addr constant [10 x i8] c"store_ptr\00"
+@weave.kw.bool = private unnamed_addr constant [5 x i8] c"bool\00"
+@weave.kw.call_bool = private unnamed_addr constant [10 x i8] c"call_bool\00"
 
 define i32 @weave_keyword_kind(ptr %text, i64 %length) {
 entry:
@@ -492,7 +494,17 @@ check_load_ptr:
 check_store_ptr:
   %is_store_ptr = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.store_ptr, i64 9)
   %store_ptr_yes = icmp ne i32 %is_store_ptr, 0
-  br i1 %store_ptr_yes, label %return_store_ptr, label %return_ident
+  br i1 %store_ptr_yes, label %return_store_ptr, label %check_bool_type
+
+check_bool_type:
+  %is_bool_type = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.bool, i64 4)
+  %bool_type_yes = icmp ne i32 %is_bool_type, 0
+  br i1 %bool_type_yes, label %return_bool_type, label %check_call_bool
+
+check_call_bool:
+  %is_call_bool = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.call_bool, i64 9)
+  %call_bool_yes = icmp ne i32 %is_call_bool, 0
+  br i1 %call_bool_yes, label %return_call_bool, label %return_ident
 
 return_fn:
   ret i32 6
@@ -658,6 +670,12 @@ return_load_ptr:
 
 return_store_ptr:
   ret i32 71
+
+return_bool_type:
+  ret i32 72
+
+return_call_bool:
+  ret i32 73
 
 return_ident:
   ret i32 3
