@@ -628,11 +628,18 @@ capture_call_ptr_name:
   %call_ptr_name_start = call i64 @weave_parser_current_start(ptr %parser)
   %call_ptr_name_len = call i64 @weave_parser_current_length(ptr %parser)
   call void @weave_parser_advance(ptr %parser)
+  %call_ptr_after_name_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %call_ptr_has_arg = icmp ne i32 %call_ptr_after_name_kind, 2
+  br i1 %call_ptr_has_arg, label %call_ptr_parse_arg, label %call_ptr_close
+
+call_ptr_parse_arg:
   %call_ptr_arg = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
   %call_ptr_arg_failed = icmp slt i64 %call_ptr_arg, 0
   br i1 %call_ptr_arg_failed, label %fail, label %call_ptr_close
 
 call_ptr_close:
+  %call_ptr_arg_value = phi i64 [-1, %capture_call_ptr_name], [%call_ptr_arg, %call_ptr_parse_arg]
+  %call_ptr_arg_count = phi i64 [0, %capture_call_ptr_name], [1, %call_ptr_parse_arg]
   %call_ptr_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
   %call_ptr_close_failed = icmp ne i32 %call_ptr_close_status, 0
   br i1 %call_ptr_close_failed, label %fail, label %make_call_ptr
@@ -641,9 +648,9 @@ make_call_ptr:
   %call_ptr_node = call i64 @weave_ast_push(
     ptr %ast,
     i32 18,
-    i64 %call_ptr_arg,
+    i64 %call_ptr_arg_value,
     i64 -1,
-    i64 1,
+    i64 %call_ptr_arg_count,
     i64 %call_ptr_name_start,
     i64 %call_ptr_name_len
   )
@@ -1919,7 +1926,9 @@ returns_type:
   %return_type_kind = call i32 @weave_parser_current_kind(ptr %parser)
   %return_is_i32 = icmp eq i32 %return_type_kind, 32
   %return_is_i64 = icmp eq i32 %return_type_kind, 39
-  %return_type_ok = or i1 %return_is_i32, %return_is_i64
+  %return_is_ptr = icmp eq i32 %return_type_kind, 58
+  %return_int_ok = or i1 %return_is_i32, %return_is_i64
+  %return_type_ok = or i1 %return_int_ok, %return_is_ptr
   br i1 %return_type_ok, label %consume_return_type, label %fail
 
 consume_return_type:

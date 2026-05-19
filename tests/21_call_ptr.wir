@@ -1,0 +1,48 @@
+(core-module
+  (core-version 1)
+
+  (decls
+
+    (extern malloc
+      (params
+        (size i64))
+      (returns ptr))
+
+    (extern free
+      (params
+        (p ptr))
+      (returns void))
+
+    (fn make_ptr
+      (params)
+      (returns ptr)
+
+      (body
+        (return
+          (call_ptr malloc
+            (const_i64 8)))))
+
+    (fn main
+      (params)
+      (returns i32)
+
+      (body
+        (let p ptr
+          (call_ptr make_ptr))
+
+        (if
+          (eq_ptr
+            (local_get p)
+            (const_null))
+
+          (then
+            (return
+              (const_i32 0)))
+
+          (else
+            (block
+              (call_void free
+                (local_get p))
+
+              (return
+                (const_i32 42)))))))))
