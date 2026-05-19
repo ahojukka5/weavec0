@@ -666,11 +666,18 @@ capture_call_void_name:
   %call_void_name_start = call i64 @weave_parser_current_start(ptr %parser)
   %call_void_name_len = call i64 @weave_parser_current_length(ptr %parser)
   call void @weave_parser_advance(ptr %parser)
+  %call_void_after_name_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %call_void_has_arg = icmp ne i32 %call_void_after_name_kind, 2
+  br i1 %call_void_has_arg, label %call_void_parse_arg, label %call_void_close
+
+call_void_parse_arg:
   %call_void_arg = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
   %call_void_arg_failed = icmp slt i64 %call_void_arg, 0
   br i1 %call_void_arg_failed, label %fail, label %call_void_close
 
 call_void_close:
+  %call_void_arg_value = phi i64 [-1, %capture_call_void_name], [%call_void_arg, %call_void_parse_arg]
+  %call_void_arg_count = phi i64 [0, %capture_call_void_name], [1, %call_void_parse_arg]
   %call_void_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
   %call_void_close_failed = icmp ne i32 %call_void_close_status, 0
   br i1 %call_void_close_failed, label %fail, label %make_call_void
@@ -679,9 +686,9 @@ make_call_void:
   %call_void_node = call i64 @weave_ast_push(
     ptr %ast,
     i32 19,
-    i64 %call_void_arg,
+    i64 %call_void_arg_value,
     i64 -1,
-    i64 1,
+    i64 %call_void_arg_count,
     i64 %call_void_name_start,
     i64 %call_void_name_len
   )
@@ -1014,6 +1021,45 @@ make_node:
     ptr %ast,
     i32 4,
     i64 %expr,
+    i64 0,
+    i64 0,
+    i64 0,
+    i64 0
+  )
+  ret i64 %node
+
+fail:
+  ret i64 -1
+}
+
+; ----------------------------------------------------------------------------
+; weave_parse_return_void_stmt
+;
+; Parse:
+;   (return_void)
+; ----------------------------------------------------------------------------
+
+define i64 @weave_parse_return_void_stmt(ptr %parser, ptr %ast) {
+entry:
+  %open_status = call i32 @weave_parser_expect(ptr %parser, i32 1)
+  %open_failed = icmp ne i32 %open_status, 0
+  br i1 %open_failed, label %fail, label %expect_return_void
+
+expect_return_void:
+  %return_status = call i32 @weave_parser_expect(ptr %parser, i32 68)
+  %return_failed = icmp ne i32 %return_status, 0
+  br i1 %return_failed, label %fail, label %close
+
+close:
+  %close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %close_failed = icmp ne i32 %close_status, 0
+  br i1 %close_failed, label %fail, label %make_node
+
+make_node:
+  %node = call i64 @weave_ast_push(
+    ptr %ast,
+    i32 27,
+    i64 0,
     i64 0,
     i64 0,
     i64 0,
@@ -1453,7 +1499,11 @@ lookahead:
 
 check_if:
   %is_if = icmp eq i32 %head_kind, 8
-  br i1 %is_if, label %if_stmt, label %check_while
+  br i1 %is_if, label %if_stmt, label %check_return_void
+
+check_return_void:
+  %is_return_void = icmp eq i32 %head_kind, 68
+  br i1 %is_return_void, label %return_void_stmt, label %check_while
 
 check_while:
   %is_while = icmp eq i32 %head_kind, 10
@@ -1482,6 +1532,10 @@ check_block:
 return_stmt:
   %return_node = call i64 @weave_parse_return_stmt(ptr %parser, ptr %ast)
   ret i64 %return_node
+
+return_void_stmt:
+  %return_void_node = call i64 @weave_parse_return_void_stmt(ptr %parser, ptr %ast)
+  ret i64 %return_void_node
 
 if_stmt:
   %if_node = call i64 @weave_parse_if_stmt(ptr %parser, ptr %ast)
@@ -1927,8 +1981,10 @@ returns_type:
   %return_is_i32 = icmp eq i32 %return_type_kind, 32
   %return_is_i64 = icmp eq i32 %return_type_kind, 39
   %return_is_ptr = icmp eq i32 %return_type_kind, 58
+  %return_is_void = icmp eq i32 %return_type_kind, 59
   %return_int_ok = or i1 %return_is_i32, %return_is_i64
-  %return_type_ok = or i1 %return_int_ok, %return_is_ptr
+  %return_value_ok = or i1 %return_int_ok, %return_is_ptr
+  %return_type_ok = or i1 %return_value_ok, %return_is_void
   br i1 %return_type_ok, label %consume_return_type, label %fail
 
 consume_return_type:

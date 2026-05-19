@@ -212,6 +212,7 @@ main() {
   run_case "19_call_void" 42
   run_case "20_call_i64" 42
   run_case "21_call_ptr" 42
+  run_case "22_return_void" 42
 
   log "all bootstrap tests passed"
 }
