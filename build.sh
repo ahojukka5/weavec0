@@ -208,6 +208,7 @@ main() {
   run_case "15_ptr_null" 42
   run_case "16_extern_malloc_free" 42
   run_case "17_ptr_add_store_load_i64" 42
+  run_case "18_store_load_i8" 42
 
   log "all bootstrap tests passed"
 }
