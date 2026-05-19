@@ -210,6 +210,7 @@ main() {
   run_case "17_ptr_add_store_load_i64" 42
   run_case "18_store_load_i8" 42
   run_case "19_call_void" 42
+  run_case "20_call_i64" 42
 
   log "all bootstrap tests passed"
 }
