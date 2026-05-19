@@ -130,6 +130,14 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; TOKEN_GT      = 22
 ; TOKEN_GE      = 23
 ; TOKEN_BLOCK   = 24
+; TOKEN_CORE_MODULE  = 25
+; TOKEN_CORE_VERSION = 26
+; TOKEN_DECLS        = 27
+; TOKEN_PARAMS       = 28
+; TOKEN_RETURNS      = 29
+; TOKEN_BODY         = 30
+; TOKEN_CONST_I32    = 31
+; TOKEN_I32          = 32
 ;
 ; Add new token kinds only when a bootstrap test requires them.
 

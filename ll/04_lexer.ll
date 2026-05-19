@@ -170,6 +170,14 @@ entry:
 @weave.kw.let = private unnamed_addr constant [4 x i8] c"let\00"
 @weave.kw.set = private unnamed_addr constant [4 x i8] c"set\00"
 @weave.kw.block = private unnamed_addr constant [6 x i8] c"block\00"
+@weave.kw.core_module = private unnamed_addr constant [12 x i8] c"core-module\00"
+@weave.kw.core_version = private unnamed_addr constant [13 x i8] c"core-version\00"
+@weave.kw.decls = private unnamed_addr constant [6 x i8] c"decls\00"
+@weave.kw.params = private unnamed_addr constant [7 x i8] c"params\00"
+@weave.kw.returns = private unnamed_addr constant [8 x i8] c"returns\00"
+@weave.kw.body = private unnamed_addr constant [5 x i8] c"body\00"
+@weave.kw.const_i32 = private unnamed_addr constant [10 x i8] c"const_i32\00"
+@weave.kw.i32 = private unnamed_addr constant [4 x i8] c"i32\00"
 
 define i32 @weave_keyword_kind(ptr %text, i64 %length) {
 entry:
@@ -210,7 +218,47 @@ check_set:
 check_block:
   %is_block = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.block, i64 5)
   %block_yes = icmp ne i32 %is_block, 0
-  br i1 %block_yes, label %return_block, label %return_ident
+  br i1 %block_yes, label %return_block, label %check_core_module
+
+check_core_module:
+  %is_core_module = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.core_module, i64 11)
+  %core_module_yes = icmp ne i32 %is_core_module, 0
+  br i1 %core_module_yes, label %return_core_module, label %check_core_version
+
+check_core_version:
+  %is_core_version = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.core_version, i64 12)
+  %core_version_yes = icmp ne i32 %is_core_version, 0
+  br i1 %core_version_yes, label %return_core_version, label %check_decls
+
+check_decls:
+  %is_decls = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.decls, i64 5)
+  %decls_yes = icmp ne i32 %is_decls, 0
+  br i1 %decls_yes, label %return_decls, label %check_params
+
+check_params:
+  %is_params = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.params, i64 6)
+  %params_yes = icmp ne i32 %is_params, 0
+  br i1 %params_yes, label %return_params, label %check_returns
+
+check_returns:
+  %is_returns = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.returns, i64 7)
+  %returns_yes = icmp ne i32 %is_returns, 0
+  br i1 %returns_yes, label %return_returns, label %check_body
+
+check_body:
+  %is_body = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.body, i64 4)
+  %body_yes = icmp ne i32 %is_body, 0
+  br i1 %body_yes, label %return_body, label %check_const_i32
+
+check_const_i32:
+  %is_const_i32 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.const_i32, i64 9)
+  %const_i32_yes = icmp ne i32 %is_const_i32, 0
+  br i1 %const_i32_yes, label %return_const_i32, label %check_i32
+
+check_i32:
+  %is_i32 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.i32, i64 3)
+  %i32_yes = icmp ne i32 %is_i32, 0
+  br i1 %i32_yes, label %return_i32, label %return_ident
 
 return_fn:
   ret i32 6
@@ -235,6 +283,30 @@ return_set:
 
 return_block:
   ret i32 24
+
+return_core_module:
+  ret i32 25
+
+return_core_version:
+  ret i32 26
+
+return_decls:
+  ret i32 27
+
+return_params:
+  ret i32 28
+
+return_returns:
+  ret i32 29
+
+return_body:
+  ret i32 30
+
+return_const_i32:
+  ret i32 31
+
+return_i32:
+  ret i32 32
 
 return_ident:
   ret i32 3
