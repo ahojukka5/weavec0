@@ -198,6 +198,7 @@ entry:
 @weave.emit.label_prefix = private unnamed_addr constant [6 x i8] c"label\00"
 @weave.emit.gep_i8 = private unnamed_addr constant [26 x i8] c" = getelementptr i8, ptr \00"
 @weave.emit.add = private unnamed_addr constant [12 x i8] c" = add i32 \00"
+@weave.emit.mod_i32 = private unnamed_addr constant [13 x i8] c" = srem i32 \00"
 @weave.emit.add_i64 = private unnamed_addr constant [12 x i8] c" = add i64 \00"
 @weave.emit.mul_i64 = private unnamed_addr constant [12 x i8] c" = mul i64 \00"
 @weave.emit.icmp_lt = private unnamed_addr constant [17 x i8] c" = icmp slt i32 \00"
@@ -593,7 +594,11 @@ check_eq_ptr:
 
 check_ne_ptr:
   %is_ne_ptr = icmp eq i32 %op, 19
-  br i1 %is_ne_ptr, label %ne_ptr, label %fail
+  br i1 %is_ne_ptr, label %ne_ptr, label %check_mod_i32
+
+check_mod_i32:
+  %is_mod_i32 = icmp eq i32 %op, 20
+  br i1 %is_mod_i32, label %mod_i32, label %fail
 
 add_i64:
   %s_add_i64 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.add_i64)
@@ -630,6 +635,10 @@ eq_ptr:
 ne_ptr:
   %s_ne_ptr = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.icmp_ne_ptr)
   ret i32 %s_ne_ptr
+
+mod_i32:
+  %s_mod_i32 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.mod_i32)
+  ret i32 %s_mod_i32
 
 fail:
   ret i32 1

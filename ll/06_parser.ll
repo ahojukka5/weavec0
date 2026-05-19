@@ -210,7 +210,11 @@ check_eq_ptr:
 
 check_ne_ptr:
   %is_ne_ptr = icmp eq i32 %kind, 56
-  br i1 %is_ne_ptr, label %ne_ptr, label %none
+  br i1 %is_ne_ptr, label %ne_ptr, label %check_mod_i32
+
+check_mod_i32:
+  %is_mod_i32 = icmp eq i32 %kind, 69
+  br i1 %is_mod_i32, label %mod_i32, label %none
 
 add:
   ret i32 1
@@ -244,6 +248,9 @@ eq_ptr:
 
 ne_ptr:
   ret i32 19
+
+mod_i32:
+  ret i32 20
 
 none:
   ret i32 0

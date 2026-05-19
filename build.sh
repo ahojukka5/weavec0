@@ -213,6 +213,7 @@ main() {
   run_case "20_call_i64" 42
   run_case "21_call_ptr" 42
   run_case "22_return_void" 42
+  run_case "23_mod_i32" 2
 
   log "all bootstrap tests passed"
 }

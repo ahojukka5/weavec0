@@ -214,6 +214,7 @@ entry:
 @weave.kw.store_i8 = private unnamed_addr constant [9 x i8] c"store_i8\00"
 @weave.kw.call_i64 = private unnamed_addr constant [9 x i8] c"call_i64\00"
 @weave.kw.return_void = private unnamed_addr constant [12 x i8] c"return_void\00"
+@weave.kw.mod_i32 = private unnamed_addr constant [8 x i8] c"mod_i32\00"
 
 define i32 @weave_keyword_kind(ptr %text, i64 %length) {
 entry:
@@ -474,7 +475,12 @@ check_call_i64:
 check_return_void:
   %is_return_void = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.return_void, i64 11)
   %return_void_yes = icmp ne i32 %is_return_void, 0
-  br i1 %return_void_yes, label %return_return_void, label %return_ident
+  br i1 %return_void_yes, label %return_return_void, label %check_mod_i32
+
+check_mod_i32:
+  %is_mod_i32 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.mod_i32, i64 7)
+  %mod_i32_yes = icmp ne i32 %is_mod_i32, 0
+  br i1 %mod_i32_yes, label %return_mod_i32, label %return_ident
 
 return_fn:
   ret i32 6
@@ -631,6 +637,9 @@ return_call_i64:
 
 return_return_void:
   ret i32 68
+
+return_mod_i32:
+  ret i32 69
 
 return_ident:
   ret i32 3
