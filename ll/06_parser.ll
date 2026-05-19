@@ -647,7 +647,11 @@ check_and_bool:
 
 check_or_bool:
   %is_or_bool = icmp eq i32 %head_kind, 53
-  br i1 %is_or_bool, label %parse_or_bool, label %check_eq_ptr
+  br i1 %is_or_bool, label %parse_or_bool, label %check_not_bool
+
+check_not_bool:
+  %is_not_bool = icmp eq i32 %head_kind, 86
+  br i1 %is_not_bool, label %parse_not_bool, label %check_eq_ptr
 
 check_eq_ptr:
   %is_eq_ptr = icmp eq i32 %head_kind, 55
@@ -760,6 +764,29 @@ capture_const_string:
 make_const_string:
   %string_node = call i64 @weave_ast_make_string_literal(ptr %ast, i64 %string_start, i64 %string_len)
   ret i64 %string_node
+
+parse_not_bool:
+  call void @weave_parser_advance(ptr %parser)
+  %not_expr = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %not_expr_failed = icmp slt i64 %not_expr, 0
+  br i1 %not_expr_failed, label %fail, label %not_close
+
+not_close:
+  %not_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %not_close_failed = icmp ne i32 %not_close_status, 0
+  br i1 %not_close_failed, label %fail, label %make_not
+
+make_not:
+  %not_node = call i64 @weave_ast_push(
+    ptr %ast,
+    i32 35,
+    i64 %not_expr,
+    i64 0,
+    i64 0,
+    i64 0,
+    i64 0
+  )
+  ret i64 %not_node
 
 parse_param_get:
   call void @weave_parser_advance(ptr %parser)

@@ -228,10 +228,12 @@ entry:
 @weave.emit.icmp_ne_i64 = private unnamed_addr constant [16 x i8] c" = icmp ne i64 \00"
 @weave.emit.and_bool = private unnamed_addr constant [11 x i8] c" = and i1 \00"
 @weave.emit.or_bool = private unnamed_addr constant [10 x i8] c" = or i1 \00"
+@weave.emit.not_bool = private unnamed_addr constant [11 x i8] c" = xor i1 \00"
 @weave.emit.icmp_eq_ptr = private unnamed_addr constant [16 x i8] c" = icmp eq ptr \00"
 @weave.emit.icmp_ne_ptr = private unnamed_addr constant [16 x i8] c" = icmp ne ptr \00"
 @weave.emit.comma_i32 = private unnamed_addr constant [3 x i8] c", \00"
 @weave.emit.comma_i64 = private unnamed_addr constant [7 x i8] c", i64 \00"
+@weave.emit.comma_true = private unnamed_addr constant [7 x i8] c", true\00"
 @weave.emit.null = private unnamed_addr constant [5 x i8] c"null\00"
 @weave.emit.br_i1 = private unnamed_addr constant [9 x i8] c"  br i1 \00"
 @weave.emit.comma_label_percent = private unnamed_addr constant [10 x i8] c", label %\00"
@@ -645,7 +647,9 @@ check_i64:
 
 check_bool:
   %is_call_bool = icmp eq i32 %kind, 31
-  br i1 %is_call_bool, label %bool_type, label %i32_type
+  %is_not_bool_type = icmp eq i32 %kind, 35
+  %is_bool_expr = or i1 %is_call_bool, %is_not_bool_type
+  br i1 %is_bool_expr, label %bool_type, label %i32_type
 
 name:
   %name_start = call i64 @weave_ast_text_start(ptr %ast, i64 %node_index)
@@ -1333,7 +1337,11 @@ check_call_i64:
 
 check_call_bool:
   %is_call_bool = icmp eq i32 %kind, 31
-  br i1 %is_call_bool, label %call_bool, label %unsupported
+  br i1 %is_call_bool, label %call_bool, label %check_not_bool
+
+check_not_bool:
+  %is_not_bool_expr = icmp eq i32 %kind, 35
+  br i1 %is_not_bool_expr, label %not_bool, label %unsupported
 
 integer:
   %value_wide = call i64 @weave_ast_a(ptr %ast, i64 %node_index)
@@ -1400,6 +1408,10 @@ call_i64:
 call_bool:
   %call_bool_value = call i64 @weave_emit_call_bool_expr(ptr %ctx, i64 %node_index)
   ret i64 %call_bool_value
+
+not_bool:
+  %not_bool_value = call i64 @weave_emit_not_bool_expr(ptr %ctx, i64 %node_index)
+  ret i64 %not_bool_value
 
 unsupported:
   ret i64 -9223372036854775808
@@ -2038,6 +2050,47 @@ emit:
   %s2 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.sext_i32)
   %s3 = call i32 @weave_emit_operand(ptr %ctx, i64 %value)
   %s4 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.to_i64)
+  %s5 = call i32 @weave_emit_newline(ptr %ctx)
+  %s0_failed = icmp ne i32 %s0, 0
+  %s1_failed = icmp ne i32 %s1, 0
+  %s2_failed = icmp ne i32 %s2, 0
+  %s3_failed = icmp ne i32 %s3, 0
+  %s4_failed = icmp ne i32 %s4, 0
+  %s5_failed = icmp ne i32 %s5, 0
+  %bad01 = or i1 %s0_failed, %s1_failed
+  %bad23 = or i1 %s2_failed, %s3_failed
+  %bad45 = or i1 %s4_failed, %s5_failed
+  %bad0123 = or i1 %bad01, %bad23
+  %bad = or i1 %bad0123, %bad45
+  br i1 %bad, label %fail, label %success
+
+success:
+  ret i64 %temp
+
+fail:
+  ret i64 -9223372036854775808
+}
+
+; ----------------------------------------------------------------------------
+; weave_emit_not_bool_expr
+; ----------------------------------------------------------------------------
+
+define i64 @weave_emit_not_bool_expr(ptr %ctx, i64 %node_index) {
+entry:
+  %ast = call ptr @weave_emit_ast(ptr %ctx)
+  %expr_node = call i64 @weave_ast_a(ptr %ast, i64 %node_index)
+  %value = call i64 @weave_emit_expr(ptr %ctx, i64 %expr_node)
+  %failed = icmp eq i64 %value, -9223372036854775808
+  br i1 %failed, label %fail, label %emit
+
+emit:
+  %temp = call i64 @weave_emit_next_temp(ptr %ctx)
+  %s0 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.tmp_prefix)
+  %temp_i32 = trunc i64 %temp to i32
+  %s1 = call i32 @weave_emit_i32(ptr %ctx, i32 %temp_i32)
+  %s2 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.not_bool)
+  %s3 = call i32 @weave_emit_operand(ptr %ctx, i64 %value)
+  %s4 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.comma_true)
   %s5 = call i32 @weave_emit_newline(ptr %ctx)
   %s0_failed = icmp ne i32 %s0, 0
   %s1_failed = icmp ne i32 %s1, 0

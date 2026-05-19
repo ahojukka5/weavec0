@@ -202,6 +202,7 @@ entry:
 @weave.kw.false = private unnamed_addr constant [6 x i8] c"false\00"
 @weave.kw.and_bool = private unnamed_addr constant [9 x i8] c"and_bool\00"
 @weave.kw.or_bool = private unnamed_addr constant [8 x i8] c"or_bool\00"
+@weave.kw.not_bool = private unnamed_addr constant [9 x i8] c"not_bool\00"
 @weave.kw.const_null = private unnamed_addr constant [11 x i8] c"const_null\00"
 @weave.kw.eq_ptr = private unnamed_addr constant [7 x i8] c"eq_ptr\00"
 @weave.kw.ne_ptr = private unnamed_addr constant [7 x i8] c"ne_ptr\00"
@@ -431,7 +432,12 @@ check_and_bool:
 check_or_bool:
   %is_or_bool = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.or_bool, i64 7)
   %or_bool_yes = icmp ne i32 %is_or_bool, 0
-  br i1 %or_bool_yes, label %return_or_bool, label %check_const_null
+  br i1 %or_bool_yes, label %return_or_bool, label %check_not_bool
+
+check_not_bool:
+  %is_not_bool = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.not_bool, i64 8)
+  %not_bool_yes = icmp ne i32 %is_not_bool, 0
+  br i1 %not_bool_yes, label %return_not_bool, label %check_const_null
 
 check_const_null:
   %is_const_null = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.const_null, i64 10)
@@ -784,6 +790,9 @@ return_sub_i64:
 
 return_eq_i64:
   ret i32 85
+
+return_not_bool:
+  ret i32 86
 
 return_ident:
   ret i32 3
