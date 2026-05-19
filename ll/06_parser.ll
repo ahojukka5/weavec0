@@ -727,7 +727,7 @@ check_set:
   br i1 %is_set, label %set_stmt, label %check_block
 
 check_block:
-  %is_block = icmp eq i32 %head_kind, 3
+  %is_block = icmp eq i32 %head_kind, 24
   br i1 %is_block, label %block_stmt, label %expr_stmt
 
 return_stmt:
@@ -756,7 +756,20 @@ block_stmt:
 
 expr_stmt:
   %expr_node = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
-  ret i64 %expr_node
+  %expr_failed = icmp slt i64 %expr_node, 0
+  br i1 %expr_failed, label %fail, label %make_expr_stmt
+
+make_expr_stmt:
+  %stmt_node = call i64 @weave_ast_push(
+    ptr %ast,
+    i32 14,
+    i64 %expr_node,
+    i64 0,
+    i64 0,
+    i64 0,
+    i64 0
+  )
+  ret i64 %stmt_node
 
 fail:
   ret i64 -1
@@ -785,12 +798,10 @@ entry:
 
 read_head:
   %head_kind = call i32 @weave_parser_current_kind(ptr %parser)
-  %is_block_ident = icmp eq i32 %head_kind, 3
-  br i1 %is_block_ident, label %consume_head, label %fail
+  %is_block = icmp eq i32 %head_kind, 24
+  br i1 %is_block, label %consume_head, label %fail
 
 consume_head:
-  ; The lexer does not reserve `block` as a keyword. Stage 0 accepts any IDENT
-  ; here and relies on tests to use `block`. This avoids adding a token too early.
   call void @weave_parser_advance(ptr %parser)
   br label %loop
 

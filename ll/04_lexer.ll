@@ -169,6 +169,7 @@ entry:
 @weave.kw.while = private unnamed_addr constant [6 x i8] c"while\00"
 @weave.kw.let = private unnamed_addr constant [4 x i8] c"let\00"
 @weave.kw.set = private unnamed_addr constant [4 x i8] c"set\00"
+@weave.kw.block = private unnamed_addr constant [6 x i8] c"block\00"
 
 define i32 @weave_keyword_kind(ptr %text, i64 %length) {
 entry:
@@ -204,7 +205,12 @@ check_let:
 check_set:
   %is_set = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.set, i64 3)
   %set_yes = icmp ne i32 %is_set, 0
-  br i1 %set_yes, label %return_set, label %return_ident
+  br i1 %set_yes, label %return_set, label %check_block
+
+check_block:
+  %is_block = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.block, i64 5)
+  %block_yes = icmp ne i32 %is_block, 0
+  br i1 %block_yes, label %return_block, label %return_ident
 
 return_fn:
   ret i32 6
@@ -226,6 +232,9 @@ return_let:
 
 return_set:
   ret i32 12
+
+return_block:
+  ret i32 24
 
 return_ident:
   ret i32 3
