@@ -202,6 +202,8 @@ entry:
 @weave.emit.zext_i8 = private unnamed_addr constant [12 x i8] c" = zext i8 \00"
 @weave.emit.to_i32_nl = private unnamed_addr constant [9 x i8] c" to i32\0A\00"
 @weave.emit.store_i8 = private unnamed_addr constant [12 x i8] c"  store i8 \00"
+@weave.emit.trunc_i32 = private unnamed_addr constant [14 x i8] c" = trunc i32 \00"
+@weave.emit.to_i8_nl = private unnamed_addr constant [8 x i8] c" to i8\0A\00"
 @weave.emit.alloca_ptr = private unnamed_addr constant [15 x i8] c" = alloca ptr\0A\00"
 @weave.emit.load_ptr = private unnamed_addr constant [19 x i8] c" = load ptr, ptr %\00"
 @weave.emit.load_ptr_value = private unnamed_addr constant [18 x i8] c" = load ptr, ptr \00"
@@ -2587,11 +2589,36 @@ entry:
 value:
   %stored_value = call i64 @weave_emit_expr(ptr %ctx, i64 %value_node)
   %value_failed = icmp eq i64 %stored_value, -9223372036854775808
-  br i1 %value_failed, label %fail, label %emit
+  br i1 %value_failed, label %fail, label %classify_value
+
+classify_value:
+  %is_temp_i32 = call i32 @weave_emitted_value_is_temp(i64 %stored_value)
+  %is_temp = icmp ne i32 %is_temp_i32, 0
+  br i1 %is_temp, label %truncate_value, label %emit
+
+truncate_value:
+  %trunc_temp = call i64 @weave_emit_next_temp(ptr %ctx)
+  %t0 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.tmp_prefix)
+  %trunc_temp_i32 = trunc i64 %trunc_temp to i32
+  %t1 = call i32 @weave_emit_i32(ptr %ctx, i32 %trunc_temp_i32)
+  %t2 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.trunc_i32)
+  %t3 = call i32 @weave_emit_operand(ptr %ctx, i64 %stored_value)
+  %t4 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.to_i8_nl)
+  %t0_failed = icmp ne i32 %t0, 0
+  %t1_failed = icmp ne i32 %t1, 0
+  %t2_failed = icmp ne i32 %t2, 0
+  %t3_failed = icmp ne i32 %t3, 0
+  %t4_failed = icmp ne i32 %t4, 0
+  %tbad01 = or i1 %t0_failed, %t1_failed
+  %tbad23 = or i1 %t2_failed, %t3_failed
+  %tbad0123 = or i1 %tbad01, %tbad23
+  %tbad = or i1 %tbad0123, %t4_failed
+  br i1 %tbad, label %fail, label %emit
 
 emit:
+  %store_value = phi i64 [%stored_value, %classify_value], [%trunc_temp, %truncate_value]
   %s0 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.store_i8)
-  %s1 = call i32 @weave_emit_operand(ptr %ctx, i64 %stored_value)
+  %s1 = call i32 @weave_emit_operand(ptr %ctx, i64 %store_value)
   %s2 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.comma_ptr)
   %s3 = call i32 @weave_emit_operand(ptr %ctx, i64 %ptr_value)
   %s4 = call i32 @weave_emit_newline(ptr %ctx)
