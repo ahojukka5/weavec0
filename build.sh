@@ -199,7 +199,7 @@ main() {
   run_case "06_set_local" 42
   run_case "07_if" 42
   run_case "08_while" 42
-  # run_case "09_two_arg_function" 42
+  run_case "09_two_arg_function" 42
   # run_case "10_string_literal" 42
 
   log "all bootstrap tests passed"
