@@ -1,5 +1,0 @@
-(fn inc x
-  (return (+ x 1)))
-
-(fn main
-  (return (inc 41)))

@@ -365,7 +365,15 @@ make_binary:
 
 check_const_i32:
   %is_const_i32 = icmp eq i32 %head_kind, 31
-  br i1 %is_const_i32, label %parse_const_i32, label %parse_call_head
+  br i1 %is_const_i32, label %parse_const_i32, label %check_param_get
+
+check_param_get:
+  %is_param_get = icmp eq i32 %head_kind, 33
+  br i1 %is_param_get, label %parse_param_get, label %check_call_i32
+
+check_call_i32:
+  %is_call_i32 = icmp eq i32 %head_kind, 34
+  br i1 %is_call_i32, label %parse_call_i32, label %parse_call_head
 
 parse_const_i32:
   call void @weave_parser_advance(ptr %parser)
@@ -383,6 +391,72 @@ capture_const_i32:
 make_const_i32:
   %const_node = call i64 @weave_ast_make_integer_literal(ptr %ast, i32 %const_value)
   ret i64 %const_node
+
+parse_param_get:
+  call void @weave_parser_advance(ptr %parser)
+  %param_name_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %param_name_is_ident = icmp eq i32 %param_name_kind, 3
+  br i1 %param_name_is_ident, label %capture_param_get, label %fail
+
+capture_param_get:
+  %param_name_start = call i64 @weave_parser_current_start(ptr %parser)
+  %param_name_len = call i64 @weave_parser_current_length(ptr %parser)
+  call void @weave_parser_advance(ptr %parser)
+  %param_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %param_close_failed = icmp ne i32 %param_close_status, 0
+  br i1 %param_close_failed, label %fail, label %make_param_get
+
+make_param_get:
+  %param_node = call i64 @weave_ast_make_name_expr(
+    ptr %ast,
+    i64 %param_name_start,
+    i64 %param_name_len
+  )
+  ret i64 %param_node
+
+parse_call_i32:
+  call void @weave_parser_advance(ptr %parser)
+  %call_i32_name_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %call_i32_name_is_ident = icmp eq i32 %call_i32_name_kind, 3
+  br i1 %call_i32_name_is_ident, label %capture_call_i32_name, label %fail
+
+capture_call_i32_name:
+  %call_i32_name_start = call i64 @weave_parser_current_start(ptr %parser)
+  %call_i32_name_len = call i64 @weave_parser_current_length(ptr %parser)
+  call void @weave_parser_advance(ptr %parser)
+
+  %call_i32_arg = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %call_i32_arg_failed = icmp slt i64 %call_i32_arg, 0
+  br i1 %call_i32_arg_failed, label %fail, label %call_i32_maybe_second_arg
+
+call_i32_maybe_second_arg:
+  %call_i32_after_arg_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %call_i32_has_second_arg = icmp ne i32 %call_i32_after_arg_kind, 2
+  br i1 %call_i32_has_second_arg, label %call_i32_parse_second_arg, label %call_i32_close
+
+call_i32_parse_second_arg:
+  %call_i32_arg2 = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %call_i32_arg2_failed = icmp slt i64 %call_i32_arg2, 0
+  br i1 %call_i32_arg2_failed, label %fail, label %call_i32_close
+
+call_i32_close:
+  %call_i32_arg2_value = phi i64 [-1, %call_i32_maybe_second_arg], [%call_i32_arg2, %call_i32_parse_second_arg]
+  %call_i32_arg_count = phi i64 [1, %call_i32_maybe_second_arg], [2, %call_i32_parse_second_arg]
+  %call_i32_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %call_i32_close_failed = icmp ne i32 %call_i32_close_status, 0
+  br i1 %call_i32_close_failed, label %fail, label %make_call_i32
+
+make_call_i32:
+  %call_i32_node = call i64 @weave_ast_push(
+    ptr %ast,
+    i32 9,
+    i64 %call_i32_arg,
+    i64 %call_i32_arg2_value,
+    i64 %call_i32_arg_count,
+    i64 %call_i32_name_start,
+    i64 %call_i32_name_len
+  )
+  ret i64 %call_i32_node
 
 parse_call_head:
   %is_ident = icmp eq i32 %head_kind, 3
@@ -1046,10 +1120,12 @@ fail:
 ; ----------------------------------------------------------------------------
 ; weave_parse_wir_function
 ;
-; Parse the WIR function shape admitted by the first core-language test:
+; Parse the WIR function shape admitted by the bootstrap ladder:
 ;
-;   (fn main
+;   (fn name
 ;     (params)
+;     (params (x i32))
+;     (params (x i32) (y i32))
 ;     (returns i32)
 ;     (body ...))
 ; ----------------------------------------------------------------------------
@@ -1084,9 +1160,69 @@ params_open:
 params_head:
   %params_status = call i32 @weave_parser_expect(ptr %parser, i32 28)
   %params_failed = icmp ne i32 %params_status, 0
-  br i1 %params_failed, label %fail, label %params_close
+  br i1 %params_failed, label %fail, label %params_empty_or_param1
+
+params_empty_or_param1:
+  %params_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %params_empty = icmp eq i32 %params_kind, 2
+  br i1 %params_empty, label %params_close, label %parse_param1
+
+parse_param1:
+  %param1_open_status = call i32 @weave_parser_expect(ptr %parser, i32 1)
+  %param1_open_failed = icmp ne i32 %param1_open_status, 0
+  br i1 %param1_open_failed, label %fail, label %param1_name
+
+param1_name:
+  %param1_name_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %param1_is_ident = icmp eq i32 %param1_name_kind, 3
+  br i1 %param1_is_ident, label %capture_param1_name, label %fail
+
+capture_param1_name:
+  %param1_start_val = call i64 @weave_parser_current_start(ptr %parser)
+  %param1_len_val = call i64 @weave_parser_current_length(ptr %parser)
+  call void @weave_parser_advance(ptr %parser)
+  %param1_type_status = call i32 @weave_parser_expect(ptr %parser, i32 32)
+  %param1_type_failed = icmp ne i32 %param1_type_status, 0
+  br i1 %param1_type_failed, label %fail, label %param1_close
+
+param1_close:
+  %param1_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %param1_close_failed = icmp ne i32 %param1_close_status, 0
+  br i1 %param1_close_failed, label %fail, label %after_param1
+
+after_param1:
+  %after_param1_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %has_param2 = icmp eq i32 %after_param1_kind, 1
+  br i1 %has_param2, label %parse_param2, label %params_close
+
+parse_param2:
+  %param2_open_status = call i32 @weave_parser_expect(ptr %parser, i32 1)
+  %param2_open_failed = icmp ne i32 %param2_open_status, 0
+  br i1 %param2_open_failed, label %fail, label %param2_name
+
+param2_name:
+  %param2_name_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %param2_is_ident = icmp eq i32 %param2_name_kind, 3
+  br i1 %param2_is_ident, label %capture_param2_name, label %fail
+
+capture_param2_name:
+  %param2_start_val = call i64 @weave_parser_current_start(ptr %parser)
+  %param2_len_val = call i64 @weave_parser_current_length(ptr %parser)
+  call void @weave_parser_advance(ptr %parser)
+  %param2_type_status = call i32 @weave_parser_expect(ptr %parser, i32 32)
+  %param2_type_failed = icmp ne i32 %param2_type_status, 0
+  br i1 %param2_type_failed, label %fail, label %param2_close
+
+param2_close:
+  %param2_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %param2_close_failed = icmp ne i32 %param2_close_status, 0
+  br i1 %param2_close_failed, label %fail, label %params_close
 
 params_close:
+  %param1_start = phi i64 [0, %params_empty_or_param1], [%param1_start_val, %after_param1], [%param1_start_val, %param2_close]
+  %param1_len = phi i64 [0, %params_empty_or_param1], [%param1_len_val, %after_param1], [%param1_len_val, %param2_close]
+  %param2_start = phi i64 [0, %params_empty_or_param1], [0, %after_param1], [%param2_start_val, %param2_close]
+  %param2_len = phi i64 [0, %params_empty_or_param1], [0, %after_param1], [%param2_len_val, %param2_close]
   %params_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
   %params_close_failed = icmp ne i32 %params_close_status, 0
   br i1 %params_close_failed, label %fail, label %returns_open
@@ -1114,7 +1250,15 @@ returns_close:
 parse_body:
   %body = call i64 @weave_parse_wir_body(ptr %parser, ptr %ast)
   %body_failed = icmp slt i64 %body, 0
-  br i1 %body_failed, label %fail, label %close_function
+  br i1 %body_failed, label %fail, label %apply_body_params
+
+apply_body_params:
+  %body_node = call ptr @weave_ast_node_ptr(ptr %ast, i64 %body)
+  %body_text_start_ptr = call ptr @weave_ast_node_text_start_ptr(ptr %body_node)
+  %body_text_len_ptr = call ptr @weave_ast_node_text_len_ptr(ptr %body_node)
+  store i64 %param2_start, ptr %body_text_start_ptr
+  store i64 %param2_len, ptr %body_text_len_ptr
+  br label %close_function
 
 close_function:
   %close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
@@ -1126,8 +1270,8 @@ make_node:
     ptr %ast,
     i32 2,
     i64 %body,
-    i64 0,
-    i64 0,
+    i64 %param1_start,
+    i64 %param1_len,
     i64 %name_start,
     i64 %name_len
   )

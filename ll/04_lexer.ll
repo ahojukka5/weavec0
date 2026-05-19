@@ -178,6 +178,8 @@ entry:
 @weave.kw.body = private unnamed_addr constant [5 x i8] c"body\00"
 @weave.kw.const_i32 = private unnamed_addr constant [10 x i8] c"const_i32\00"
 @weave.kw.i32 = private unnamed_addr constant [4 x i8] c"i32\00"
+@weave.kw.param_get = private unnamed_addr constant [10 x i8] c"param_get\00"
+@weave.kw.call_i32 = private unnamed_addr constant [9 x i8] c"call_i32\00"
 
 define i32 @weave_keyword_kind(ptr %text, i64 %length) {
 entry:
@@ -258,7 +260,17 @@ check_const_i32:
 check_i32:
   %is_i32 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.i32, i64 3)
   %i32_yes = icmp ne i32 %is_i32, 0
-  br i1 %i32_yes, label %return_i32, label %return_ident
+  br i1 %i32_yes, label %return_i32, label %check_param_get
+
+check_param_get:
+  %is_param_get = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.param_get, i64 9)
+  %param_get_yes = icmp ne i32 %is_param_get, 0
+  br i1 %param_get_yes, label %return_param_get, label %check_call_i32
+
+check_call_i32:
+  %is_call_i32 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.call_i32, i64 8)
+  %call_i32_yes = icmp ne i32 %is_call_i32, 0
+  br i1 %call_i32_yes, label %return_call_i32, label %return_ident
 
 return_fn:
   ret i32 6
@@ -307,6 +319,12 @@ return_const_i32:
 
 return_i32:
   ret i32 32
+
+return_param_get:
+  ret i32 33
+
+return_call_i32:
+  ret i32 34
 
 return_ident:
   ret i32 3
