@@ -825,7 +825,7 @@ then_direct:
   br i1 %then_direct_failed, label %fail, label %then_merge
 
 then_merge:
-  %then_node = phi i64 [%then_stmt_node, %then_close], [%then_stmt_direct, %then_direct]
+  %then_node_merged = phi i64 [%then_stmt_node, %then_close], [%then_stmt_direct, %then_direct]
   %else_kind = call i32 @weave_parser_current_kind(ptr %parser)
   %else_is_lparen = icmp eq i32 %else_kind, 1
   br i1 %else_is_lparen, label %else_wrapper, label %else_direct
@@ -856,7 +856,7 @@ else_direct:
   br i1 %else_direct_failed, label %fail, label %close
 
 close:
-  %else_node = phi i64 [%else_stmt_node, %else_close], [%else_stmt_direct, %else_direct]
+  %else_node_merged = phi i64 [%else_stmt_node, %else_close], [%else_stmt_direct, %else_direct]
   %close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
   %close_failed = icmp ne i32 %close_status, 0
   br i1 %close_failed, label %fail, label %make_node
@@ -866,8 +866,8 @@ make_node:
     ptr %ast,
     i32 5,
     i64 %cond,
-    i64 %then_node,
-    i64 %else_node,
+    i64 %then_node_merged,
+    i64 %else_node_merged,
     i64 0,
     i64 0
   )
@@ -882,9 +882,10 @@ fail:
 ;
 ; Parse:
 ;   (while cond body-stmt)
+;   (while cond (body stmt))
 ;
-; Body is one statement in Stage 0. Use a block when multiple statements are
-; needed.
+; Body is one statement in Stage 0. The WIR form wraps it in an explicit
+; `body` list.
 ; ----------------------------------------------------------------------------
 
 define i64 @weave_parse_while_stmt(ptr %parser, ptr %ast) {
@@ -901,14 +902,40 @@ expect_while:
 condition:
   %cond = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
   %cond_failed = icmp slt i64 %cond, 0
-  br i1 %cond_failed, label %fail, label %body
+  br i1 %cond_failed, label %fail, label %body_branch
 
-body:
-  %body_node = call i64 @weave_parse_stmt(ptr %parser, ptr %ast)
-  %body_failed = icmp slt i64 %body_node, 0
-  br i1 %body_failed, label %fail, label %close
+body_branch:
+  %body_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %body_is_lparen = icmp eq i32 %body_kind, 1
+  br i1 %body_is_lparen, label %body_wrapper, label %body_direct
 
-close:
+body_wrapper:
+  %body_open_status = call i32 @weave_parser_expect(ptr %parser, i32 1)
+  %body_open_failed = icmp ne i32 %body_open_status, 0
+  br i1 %body_open_failed, label %fail, label %body_head
+
+body_head:
+  %body_head_status = call i32 @weave_parser_expect(ptr %parser, i32 30)
+  %body_head_failed = icmp ne i32 %body_head_status, 0
+  br i1 %body_head_failed, label %fail, label %body_stmt_wrapped
+
+body_stmt_wrapped:
+  %body_node_wrapped = call i64 @weave_parse_stmt(ptr %parser, ptr %ast)
+  %body_wrapped_failed = icmp slt i64 %body_node_wrapped, 0
+  br i1 %body_wrapped_failed, label %fail, label %body_close
+
+body_close:
+  %body_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %body_close_failed = icmp ne i32 %body_close_status, 0
+  br i1 %body_close_failed, label %fail, label %body_merge
+
+body_direct:
+  %body_node_direct = call i64 @weave_parse_stmt(ptr %parser, ptr %ast)
+  %body_direct_failed = icmp slt i64 %body_node_direct, 0
+  br i1 %body_direct_failed, label %fail, label %body_merge
+
+body_merge:
+  %body_node = phi i64 [%body_node_wrapped, %body_close], [%body_node_direct, %body_direct]
   %close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
   %close_failed = icmp ne i32 %close_status, 0
   br i1 %close_failed, label %fail, label %make_node
