@@ -192,7 +192,7 @@ main() {
   # Keep this ladder small. Add a new test only when the matching bootstrap
   # feature has been deliberately admitted.
   run_case "01_return_constant" 0
-  # run_case "02_return_42" 42
+  run_case "02_return_42" 42
   # run_case "03_add" 42
   # run_case "04_one_arg_function" 42
   # run_case "05_let_local" 42
