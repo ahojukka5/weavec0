@@ -1,0 +1,21 @@
+(core-module
+  (core-version 1)
+
+  (decls
+
+    (fn main
+      (params)
+      (returns i32)
+
+      (body
+
+        (let x i32
+          (const_i32 40))
+
+        (set x
+          (add_i32
+            (local_get x)
+            (const_i32 2)))
+
+        (return
+          (local_get x))))))

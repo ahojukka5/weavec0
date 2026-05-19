@@ -1,4 +1,0 @@
-(fn main
-  (let x 40)
-  (set x (+ x 2))
-  (return x))
