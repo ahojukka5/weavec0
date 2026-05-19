@@ -352,7 +352,15 @@ check_call_ptr:
 
 check_call_void:
   %is_call_void = icmp eq i32 %head_kind, 61
-  br i1 %is_call_void, label %parse_call_void, label %check_local_get
+  br i1 %is_call_void, label %parse_call_void, label %check_ptr_add
+
+check_ptr_add:
+  %is_ptr_add = icmp eq i32 %head_kind, 62
+  br i1 %is_ptr_add, label %parse_ptr_add, label %check_load_i64
+
+check_load_i64:
+  %is_load_i64 = icmp eq i32 %head_kind, 63
+  br i1 %is_load_i64, label %parse_load_i64, label %check_local_get
 
 check_local_get:
   %is_local_get = icmp eq i32 %head_kind, 35
@@ -637,6 +645,57 @@ make_call_void:
     i64 %call_void_name_len
   )
   ret i64 %call_void_node
+
+parse_ptr_add:
+  call void @weave_parser_advance(ptr %parser)
+  %ptr_add_base = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %ptr_add_base_failed = icmp slt i64 %ptr_add_base, 0
+  br i1 %ptr_add_base_failed, label %fail, label %ptr_add_offset
+
+ptr_add_offset:
+  %ptr_add_offset_node = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %ptr_add_offset_failed = icmp slt i64 %ptr_add_offset_node, 0
+  br i1 %ptr_add_offset_failed, label %fail, label %ptr_add_close
+
+ptr_add_close:
+  %ptr_add_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %ptr_add_close_failed = icmp ne i32 %ptr_add_close_status, 0
+  br i1 %ptr_add_close_failed, label %fail, label %make_ptr_add
+
+make_ptr_add:
+  %ptr_add_node = call i64 @weave_ast_push(
+    ptr %ast,
+    i32 21,
+    i64 %ptr_add_base,
+    i64 %ptr_add_offset_node,
+    i64 0,
+    i64 0,
+    i64 0
+  )
+  ret i64 %ptr_add_node
+
+parse_load_i64:
+  call void @weave_parser_advance(ptr %parser)
+  %load_i64_ptr = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %load_i64_ptr_failed = icmp slt i64 %load_i64_ptr, 0
+  br i1 %load_i64_ptr_failed, label %fail, label %load_i64_close
+
+load_i64_close:
+  %load_i64_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %load_i64_close_failed = icmp ne i32 %load_i64_close_status, 0
+  br i1 %load_i64_close_failed, label %fail, label %make_load_i64
+
+make_load_i64:
+  %load_i64_node = call i64 @weave_ast_push(
+    ptr %ast,
+    i32 22,
+    i64 %load_i64_ptr,
+    i64 0,
+    i64 0,
+    i64 0,
+    i64 0
+  )
+  ret i64 %load_i64_node
 
 parse_local_get:
   call void @weave_parser_advance(ptr %parser)
@@ -1024,6 +1083,55 @@ fail:
 }
 
 ; ----------------------------------------------------------------------------
+; weave_parse_store_i64_stmt
+;
+; Parse:
+;   (store_i64 ptr-expr value-expr)
+; ----------------------------------------------------------------------------
+
+define i64 @weave_parse_store_i64_stmt(ptr %parser, ptr %ast) {
+entry:
+  %open_status = call i32 @weave_parser_expect(ptr %parser, i32 1)
+  %open_failed = icmp ne i32 %open_status, 0
+  br i1 %open_failed, label %fail, label %expect_store
+
+expect_store:
+  %store_status = call i32 @weave_parser_expect(ptr %parser, i32 64)
+  %store_failed = icmp ne i32 %store_status, 0
+  br i1 %store_failed, label %fail, label %parse_ptr
+
+parse_ptr:
+  %ptr_node = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %ptr_failed = icmp slt i64 %ptr_node, 0
+  br i1 %ptr_failed, label %fail, label %parse_value
+
+parse_value:
+  %value_node = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %value_failed = icmp slt i64 %value_node, 0
+  br i1 %value_failed, label %fail, label %close
+
+close:
+  %close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %close_failed = icmp ne i32 %close_status, 0
+  br i1 %close_failed, label %fail, label %make_node
+
+make_node:
+  %node = call i64 @weave_ast_push(
+    ptr %ast,
+    i32 23,
+    i64 %ptr_node,
+    i64 %value_node,
+    i64 0,
+    i64 0,
+    i64 0
+  )
+  ret i64 %node
+
+fail:
+  ret i64 -1
+}
+
+; ----------------------------------------------------------------------------
 ; weave_parse_if_stmt
 ;
 ; Parse:
@@ -1244,7 +1352,11 @@ check_let:
 
 check_set:
   %is_set = icmp eq i32 %head_kind, 12
-  br i1 %is_set, label %set_stmt, label %check_block
+  br i1 %is_set, label %set_stmt, label %check_store_i64
+
+check_store_i64:
+  %is_store_i64 = icmp eq i32 %head_kind, 64
+  br i1 %is_store_i64, label %store_i64_stmt, label %check_block
 
 check_block:
   %is_block = icmp eq i32 %head_kind, 24
@@ -1269,6 +1381,10 @@ let_stmt:
 set_stmt:
   %set_node = call i64 @weave_parse_set_stmt(ptr %parser, ptr %ast)
   ret i64 %set_node
+
+store_i64_stmt:
+  %store_i64_node = call i64 @weave_parse_store_i64_stmt(ptr %parser, ptr %ast)
+  ret i64 %store_i64_node
 
 block_stmt:
   %block_node = call i64 @weave_parse_block(ptr %parser, ptr %ast)
