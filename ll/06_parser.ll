@@ -538,7 +538,9 @@ check_const_i64:
   br i1 %is_const_i64, label %parse_const_i64, label %check_const_string
 
 check_const_string:
-  %is_const_string = icmp eq i32 %head_kind, 41
+  %is_plain_const_string = icmp eq i32 %head_kind, 41
+  %is_const_string_ptr = icmp eq i32 %head_kind, 83
+  %is_const_string = or i1 %is_plain_const_string, %is_const_string_ptr
   br i1 %is_const_string, label %parse_const_string, label %check_param_get
 
 check_param_get:

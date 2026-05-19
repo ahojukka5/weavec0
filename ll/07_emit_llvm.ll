@@ -626,9 +626,11 @@ check_ptr:
   %is_call_ptr = icmp eq i32 %kind, 18
   %is_ptr_add = icmp eq i32 %kind, 21
   %is_load_ptr = icmp eq i32 %kind, 28
+  %is_string = icmp eq i32 %kind, 12
   %ptr_a = or i1 %is_null, %is_call_ptr
   %ptr_b = or i1 %is_ptr_add, %is_load_ptr
-  %ptr_any = or i1 %ptr_a, %ptr_b
+  %ptr_ab = or i1 %ptr_a, %ptr_b
+  %ptr_any = or i1 %ptr_ab, %is_string
   br i1 %ptr_any, label %ptr_type, label %check_i64
 
 check_i64:
@@ -736,9 +738,20 @@ eval_prev:
   br i1 %prev_failed, label %fail, label %eval_arg
 
 eval_arg:
+  %arg_kind = call i32 @weave_ast_kind(ptr %ast, i64 %arg_node)
+  %arg_is_string = icmp eq i32 %arg_kind, 12
+  br i1 %arg_is_string, label %store_string_value, label %eval_arg_expr
+
+eval_arg_expr:
   %arg_value = call i64 @weave_emit_expr(ptr %ctx, i64 %arg_node)
   %arg_failed = icmp eq i64 %arg_value, -9223372036854775808
   br i1 %arg_failed, label %fail, label %store_value
+
+store_string_value:
+  %string_list_ptr = call ptr @weave_ast_node_ptr(ptr %ast, i64 %list_node)
+  %string_value_ptr = call ptr @weave_ast_node_c_ptr(ptr %string_list_ptr)
+  store i64 %arg_node, ptr %string_value_ptr
+  br label %success
 
 store_value:
   %list_ptr = call ptr @weave_ast_node_ptr(ptr %ast, i64 %list_node)
@@ -785,7 +798,20 @@ emit_mid:
 
 emit_operand:
   %type_status = phi i32 [%head_status, %emit_head], [%mid_status, %emit_mid]
-  %operand_status = call i32 @weave_emit_operand(ptr %ctx, i64 %arg_value)
+  %arg_kind = call i32 @weave_ast_kind(ptr %ast, i64 %arg_node)
+  %arg_is_string = icmp eq i32 %arg_kind, 12
+  br i1 %arg_is_string, label %emit_string_operand, label %emit_regular_operand
+
+emit_regular_operand:
+  %regular_operand_status = call i32 @weave_emit_operand(ptr %ctx, i64 %arg_value)
+  br label %check_operand
+
+emit_string_operand:
+  %string_operand_status = call i32 @weave_emit_string_operand(ptr %ctx, i64 %arg_value)
+  br label %check_operand
+
+check_operand:
+  %operand_status = phi i32 [%regular_operand_status, %emit_regular_operand], [%string_operand_status, %emit_string_operand]
   %type_failed = icmp ne i32 %type_status, 0
   %operand_failed = icmp ne i32 %operand_status, 0
   %bad = or i1 %type_failed, %operand_failed
@@ -1061,6 +1087,23 @@ entry:
   %bad0123 = or i1 %bad01, %bad23
   %bad012345 = or i1 %bad0123, %bad45
   %bad = or i1 %bad012345, %s6_failed
+  br i1 %bad, label %fail, label %success
+
+success:
+  ret i32 0
+
+fail:
+  ret i32 1
+}
+
+define i32 @weave_emit_string_operand(ptr %ctx, i64 %node_index) {
+entry:
+  %s0 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.str_global_prefix)
+  %node_i32 = trunc i64 %node_index to i32
+  %s1 = call i32 @weave_emit_i32(ptr %ctx, i32 %node_i32)
+  %s0_failed = icmp ne i32 %s0, 0
+  %s1_failed = icmp ne i32 %s1, 0
+  %bad = or i1 %s0_failed, %s1_failed
   br i1 %bad, label %fail, label %success
 
 success:
