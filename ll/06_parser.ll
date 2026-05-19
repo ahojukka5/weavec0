@@ -377,7 +377,15 @@ check_call_i32:
 
 check_local_get:
   %is_local_get = icmp eq i32 %head_kind, 35
-  br i1 %is_local_get, label %parse_local_get, label %parse_call_head
+  br i1 %is_local_get, label %parse_local_get, label %check_then
+
+check_then:
+  %is_then = icmp eq i32 %head_kind, 36
+  br i1 %is_then, label %parse_then, label %check_lt_i32
+
+check_lt_i32:
+  %is_lt_i32 = icmp eq i32 %head_kind, 37
+  br i1 %is_lt_i32, label %parse_lt_i32, label %parse_call_head
 
 parse_const_i32:
   call void @weave_parser_advance(ptr %parser)
@@ -483,6 +491,53 @@ make_local_get:
     i64 %local_name_len
   )
   ret i64 %local_node
+
+parse_then:
+  call void @weave_parser_advance(ptr %parser)
+  %then_open_status = call i32 @weave_parser_expect(ptr %parser, i32 1)
+  %then_open_failed = icmp ne i32 %then_open_status, 0
+  br i1 %then_open_failed, label %fail, label %then_stmt
+
+then_stmt:
+  %then_stmt_node = call i64 @weave_parse_stmt(ptr %parser, ptr %ast)
+  %then_stmt_failed = icmp slt i64 %then_stmt_node, 0
+  br i1 %then_stmt_failed, label %fail, label %then_close
+
+then_close:
+  %then_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %then_close_failed = icmp ne i32 %then_close_status, 0
+  br i1 %then_close_failed, label %fail, label %make_then
+
+make_then:
+  ret i64 %then_stmt_node
+
+parse_lt_i32:
+  call void @weave_parser_advance(ptr %parser)
+  %lt_lhs = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %lt_lhs_failed = icmp slt i64 %lt_lhs, 0
+  br i1 %lt_lhs_failed, label %fail, label %lt_rhs
+
+lt_rhs:
+  %lt_rhs_node = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %lt_rhs_failed = icmp slt i64 %lt_rhs_node, 0
+  br i1 %lt_rhs_failed, label %fail, label %lt_close
+
+lt_close:
+  %lt_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %lt_close_failed = icmp ne i32 %lt_close_status, 0
+  br i1 %lt_close_failed, label %fail, label %make_lt
+
+make_lt:
+  %lt_node = call i64 @weave_ast_push(
+    ptr %ast,
+    i32 10,
+    i64 7,
+    i64 %lt_lhs,
+    i64 %lt_rhs_node,
+    i64 0,
+    i64 0
+  )
+  ret i64 %lt_node
 
 parse_call_head:
   %is_ident = icmp eq i32 %head_kind, 3
@@ -717,8 +772,10 @@ fail:
 ;
 ; Parse:
 ;   (if cond then-stmt else-stmt)
+;   (if cond (then stmt) (else stmt))
 ;
-; Both branches are single statements in Stage 0.
+; Both branches are single statements in Stage 0. The WIR form wraps each
+; branch in an explicit `then`/`else` form, which this parser accepts too.
 ; ----------------------------------------------------------------------------
 
 define i64 @weave_parse_if_stmt(ptr %parser, ptr %ast) {
@@ -738,16 +795,68 @@ condition:
   br i1 %cond_failed, label %fail, label %then_branch
 
 then_branch:
-  %then_node = call i64 @weave_parse_stmt(ptr %parser, ptr %ast)
-  %then_failed = icmp slt i64 %then_node, 0
-  br i1 %then_failed, label %fail, label %else_branch
+  %then_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %then_is_lparen = icmp eq i32 %then_kind, 1
+  br i1 %then_is_lparen, label %then_wrapper, label %then_direct
 
-else_branch:
-  %else_node = call i64 @weave_parse_stmt(ptr %parser, ptr %ast)
-  %else_failed = icmp slt i64 %else_node, 0
-  br i1 %else_failed, label %fail, label %close
+then_wrapper:
+  %then_open_status = call i32 @weave_parser_expect(ptr %parser, i32 1)
+  %then_open_failed = icmp ne i32 %then_open_status, 0
+  br i1 %then_open_failed, label %fail, label %then_head
+
+then_head:
+  %then_head_status = call i32 @weave_parser_expect(ptr %parser, i32 36)
+  %then_head_failed = icmp ne i32 %then_head_status, 0
+  br i1 %then_head_failed, label %fail, label %then_stmt_wrapped
+
+then_stmt_wrapped:
+  %then_stmt_node = call i64 @weave_parse_stmt(ptr %parser, ptr %ast)
+  %then_stmt_failed = icmp slt i64 %then_stmt_node, 0
+  br i1 %then_stmt_failed, label %fail, label %then_close
+
+then_close:
+  %then_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %then_close_failed = icmp ne i32 %then_close_status, 0
+  br i1 %then_close_failed, label %fail, label %then_merge
+
+then_direct:
+  %then_stmt_direct = call i64 @weave_parse_stmt(ptr %parser, ptr %ast)
+  %then_direct_failed = icmp slt i64 %then_stmt_direct, 0
+  br i1 %then_direct_failed, label %fail, label %then_merge
+
+then_merge:
+  %then_node = phi i64 [%then_stmt_node, %then_close], [%then_stmt_direct, %then_direct]
+  %else_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %else_is_lparen = icmp eq i32 %else_kind, 1
+  br i1 %else_is_lparen, label %else_wrapper, label %else_direct
+
+else_wrapper:
+  %else_open_status = call i32 @weave_parser_expect(ptr %parser, i32 1)
+  %else_open_failed = icmp ne i32 %else_open_status, 0
+  br i1 %else_open_failed, label %fail, label %else_head
+
+else_head:
+  %else_head_status = call i32 @weave_parser_expect(ptr %parser, i32 9)
+  %else_head_failed = icmp ne i32 %else_head_status, 0
+  br i1 %else_head_failed, label %fail, label %else_stmt_wrapped
+
+else_stmt_wrapped:
+  %else_stmt_node = call i64 @weave_parse_stmt(ptr %parser, ptr %ast)
+  %else_stmt_failed = icmp slt i64 %else_stmt_node, 0
+  br i1 %else_stmt_failed, label %fail, label %else_close
+
+else_close:
+  %else_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %else_close_failed = icmp ne i32 %else_close_status, 0
+  br i1 %else_close_failed, label %fail, label %close
+
+else_direct:
+  %else_stmt_direct = call i64 @weave_parse_stmt(ptr %parser, ptr %ast)
+  %else_direct_failed = icmp slt i64 %else_stmt_direct, 0
+  br i1 %else_direct_failed, label %fail, label %close
 
 close:
+  %else_node = phi i64 [%else_stmt_node, %else_close], [%else_stmt_direct, %else_direct]
   %close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
   %close_failed = icmp ne i32 %close_status, 0
   br i1 %close_failed, label %fail, label %make_node
