@@ -711,7 +711,11 @@ check_let:
 
 check_set:
   %is_set = icmp eq i32 %head_kind, 12
-  br i1 %is_set, label %set_stmt, label %expr_stmt
+  br i1 %is_set, label %set_stmt, label %check_block
+
+check_block:
+  %is_block = icmp eq i32 %head_kind, 3
+  br i1 %is_block, label %block_stmt, label %expr_stmt
 
 return_stmt:
   %return_node = call i64 @weave_parse_return_stmt(ptr %parser, ptr %ast)
@@ -732,6 +736,10 @@ let_stmt:
 set_stmt:
   %set_node = call i64 @weave_parse_set_stmt(ptr %parser, ptr %ast)
   ret i64 %set_node
+
+block_stmt:
+  %block_node = call i64 @weave_parse_block(ptr %parser, ptr %ast)
+  ret i64 %block_node
 
 expr_stmt:
   %expr_node = call i64 @weave_parse_expr(ptr %parser, ptr %ast)

@@ -1,0 +1,10 @@
+(fn main
+  (let i 0)
+  (let sum 0)
+
+  (while (< i 7)
+    (block
+      (set sum (+ sum 6))
+      (set i (+ i 1))))
+
+  (return sum))
