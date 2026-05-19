@@ -147,6 +147,8 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; TOKEN_I64          = 39
 ; TOKEN_CAST_I64_TO_I32 = 40
 ; TOKEN_CONST_STRING = 41
+; TOKEN_ADD_I64      = 42
+; TOKEN_MUL_I64      = 43
 ;
 ; Add new token kinds only when a bootstrap test requires them.
 

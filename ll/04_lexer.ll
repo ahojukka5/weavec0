@@ -187,6 +187,8 @@ entry:
 @weave.kw.i64 = private unnamed_addr constant [4 x i8] c"i64\00"
 @weave.kw.cast_i64_to_i32 = private unnamed_addr constant [16 x i8] c"cast_i64_to_i32\00"
 @weave.kw.const_string = private unnamed_addr constant [13 x i8] c"const_string\00"
+@weave.kw.add_i64 = private unnamed_addr constant [8 x i8] c"add_i64\00"
+@weave.kw.mul_i64 = private unnamed_addr constant [8 x i8] c"mul_i64\00"
 
 define i32 @weave_keyword_kind(ptr %text, i64 %length) {
 entry:
@@ -312,7 +314,17 @@ check_cast_i64_to_i32:
 check_const_string:
   %is_const_string = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.const_string, i64 12)
   %const_string_yes = icmp ne i32 %is_const_string, 0
-  br i1 %const_string_yes, label %return_const_string, label %return_ident
+  br i1 %const_string_yes, label %return_const_string, label %check_add_i64
+
+check_add_i64:
+  %is_add_i64 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.add_i64, i64 7)
+  %add_i64_yes = icmp ne i32 %is_add_i64, 0
+  br i1 %add_i64_yes, label %return_add_i64, label %check_mul_i64
+
+check_mul_i64:
+  %is_mul_i64 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.mul_i64, i64 7)
+  %mul_i64_yes = icmp ne i32 %is_mul_i64, 0
+  br i1 %mul_i64_yes, label %return_mul_i64, label %return_ident
 
 return_fn:
   ret i32 6
@@ -388,6 +400,12 @@ return_cast_i64_to_i32:
 
 return_const_string:
   ret i32 41
+
+return_add_i64:
+  ret i32 42
+
+return_mul_i64:
+  ret i32 43
 
 return_ident:
   ret i32 3
