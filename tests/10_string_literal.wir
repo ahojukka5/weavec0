@@ -1,0 +1,16 @@
+(core-module
+  (core-version 1)
+
+  (decls
+
+    (fn main
+      (params)
+      (returns i32)
+
+      (body
+
+        (print
+          (const_string "hello from weave"))
+
+        (return
+          (const_i32 42))))))

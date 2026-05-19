@@ -183,6 +183,7 @@ entry:
 @weave.kw.local_get = private unnamed_addr constant [10 x i8] c"local_get\00"
 @weave.kw.then = private unnamed_addr constant [5 x i8] c"then\00"
 @weave.kw.lt_i32 = private unnamed_addr constant [7 x i8] c"lt_i32\00"
+@weave.kw.const_string = private unnamed_addr constant [13 x i8] c"const_string\00"
 
 define i32 @weave_keyword_kind(ptr %text, i64 %length) {
 entry:
@@ -288,7 +289,12 @@ check_then:
 check_lt_i32:
   %is_lt_i32 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.lt_i32, i64 6)
   %lt_i32_yes = icmp ne i32 %is_lt_i32, 0
-  br i1 %lt_i32_yes, label %return_lt_i32, label %return_ident
+  br i1 %lt_i32_yes, label %return_lt_i32, label %check_const_string
+
+check_const_string:
+  %is_const_string = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.const_string, i64 12)
+  %const_string_yes = icmp ne i32 %is_const_string, 0
+  br i1 %const_string_yes, label %return_const_string, label %return_ident
 
 return_fn:
   ret i32 6
@@ -352,6 +358,9 @@ return_then:
 
 return_lt_i32:
   ret i32 37
+
+return_const_string:
+  ret i32 38
 
 return_ident:
   ret i32 3

@@ -365,7 +365,11 @@ make_binary:
 
 check_const_i32:
   %is_const_i32 = icmp eq i32 %head_kind, 31
-  br i1 %is_const_i32, label %parse_const_i32, label %check_param_get
+  br i1 %is_const_i32, label %parse_const_i32, label %check_const_string
+
+check_const_string:
+  %is_const_string = icmp eq i32 %head_kind, 38
+  br i1 %is_const_string, label %parse_const_string, label %check_param_get
 
 check_param_get:
   %is_param_get = icmp eq i32 %head_kind, 33
@@ -403,6 +407,24 @@ capture_const_i32:
 make_const_i32:
   %const_node = call i64 @weave_ast_make_integer_literal(ptr %ast, i32 %const_value)
   ret i64 %const_node
+
+parse_const_string:
+  call void @weave_parser_advance(ptr %parser)
+  %string_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %string_is_string = icmp eq i32 %string_kind, 5
+  br i1 %string_is_string, label %capture_const_string, label %fail
+
+capture_const_string:
+  %string_start = call i64 @weave_parser_current_start(ptr %parser)
+  %string_len = call i64 @weave_parser_current_length(ptr %parser)
+  call void @weave_parser_advance(ptr %parser)
+  %const_string_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %const_string_close_failed = icmp ne i32 %const_string_close_status, 0
+  br i1 %const_string_close_failed, label %fail, label %make_const_string
+
+make_const_string:
+  %string_node = call i64 @weave_ast_make_string_literal(ptr %ast, i64 %string_start, i64 %string_len)
+  ret i64 %string_node
 
 parse_param_get:
   call void @weave_parser_advance(ptr %parser)
