@@ -1,0 +1,21 @@
+(core-module
+  (core-version 1)
+
+  (decls
+
+    (extern free
+      (params
+        (p ptr))
+      (returns void))
+
+    (fn main
+      (params)
+      (returns i32)
+
+      (body
+        ; free(NULL) is valid in C.
+        (call_void free
+          (const_null))
+
+        (return
+          (const_i32 42))))))
