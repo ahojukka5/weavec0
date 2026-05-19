@@ -202,6 +202,11 @@ entry:
 @weave.kw.const_null = private unnamed_addr constant [11 x i8] c"const_null\00"
 @weave.kw.eq_ptr = private unnamed_addr constant [7 x i8] c"eq_ptr\00"
 @weave.kw.ne_ptr = private unnamed_addr constant [7 x i8] c"ne_ptr\00"
+@weave.kw.extern = private unnamed_addr constant [7 x i8] c"extern\00"
+@weave.kw.ptr = private unnamed_addr constant [4 x i8] c"ptr\00"
+@weave.kw.void = private unnamed_addr constant [5 x i8] c"void\00"
+@weave.kw.call_ptr = private unnamed_addr constant [9 x i8] c"call_ptr\00"
+@weave.kw.call_void = private unnamed_addr constant [10 x i8] c"call_void\00"
 
 define i32 @weave_keyword_kind(ptr %text, i64 %length) {
 entry:
@@ -402,7 +407,32 @@ check_eq_ptr:
 check_ne_ptr:
   %is_ne_ptr = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.ne_ptr, i64 6)
   %ne_ptr_yes = icmp ne i32 %is_ne_ptr, 0
-  br i1 %ne_ptr_yes, label %return_ne_ptr, label %return_ident
+  br i1 %ne_ptr_yes, label %return_ne_ptr, label %check_extern
+
+check_extern:
+  %is_extern = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.extern, i64 6)
+  %extern_yes = icmp ne i32 %is_extern, 0
+  br i1 %extern_yes, label %return_extern, label %check_ptr
+
+check_ptr:
+  %is_ptr = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.ptr, i64 3)
+  %ptr_yes = icmp ne i32 %is_ptr, 0
+  br i1 %ptr_yes, label %return_ptr, label %check_void
+
+check_void:
+  %is_void = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.void, i64 4)
+  %void_yes = icmp ne i32 %is_void, 0
+  br i1 %void_yes, label %return_void, label %check_call_ptr
+
+check_call_ptr:
+  %is_call_ptr = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.call_ptr, i64 8)
+  %call_ptr_yes = icmp ne i32 %is_call_ptr, 0
+  br i1 %call_ptr_yes, label %return_call_ptr, label %check_call_void
+
+check_call_void:
+  %is_call_void = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.call_void, i64 9)
+  %call_void_yes = icmp ne i32 %is_call_void, 0
+  br i1 %call_void_yes, label %return_call_void, label %return_ident
 
 return_fn:
   ret i32 6
@@ -523,6 +553,21 @@ return_eq_ptr:
 
 return_ne_ptr:
   ret i32 56
+
+return_extern:
+  ret i32 57
+
+return_ptr:
+  ret i32 58
+
+return_void:
+  ret i32 59
+
+return_call_ptr:
+  ret i32 60
+
+return_call_void:
+  ret i32 61
 
 return_ident:
   ret i32 3

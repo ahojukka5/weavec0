@@ -162,6 +162,11 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; TOKEN_CONST_NULL   = 54
 ; TOKEN_EQ_PTR       = 55
 ; TOKEN_NE_PTR       = 56
+; TOKEN_EXTERN       = 57
+; TOKEN_PTR          = 58
+; TOKEN_VOID         = 59
+; TOKEN_CALL_PTR     = 60
+; TOKEN_CALL_VOID    = 61
 ;
 ; Add new token kinds only when a bootstrap test requires them.
 
@@ -185,6 +190,10 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; AST_EXPR_STMT       = 14
 ; AST_CAST_EXPR       = 15
 ; AST_NULL_LITERAL   = 16
+; AST_EXTERN         = 17
+; AST_CALL_PTR_EXPR  = 18
+; AST_CALL_VOID_EXPR = 19
+; AST_STMT_LIST      = 20
 ;
 ; Keep this list small. Stage 0 exists to cross the bootstrap gap, not to model
 ; the complete future Weave language.
