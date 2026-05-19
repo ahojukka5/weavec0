@@ -641,9 +641,13 @@ check_i64:
   %is_load_i64 = icmp eq i32 %kind, 22
   %is_call_i64 = icmp eq i32 %kind, 26
   %is_cast_i32_to_i64 = icmp eq i32 %kind, 34
+  %is_binary_for_i64 = icmp eq i32 %kind, 10
   %i64_base = or i1 %is_load_i64, %is_call_i64
-  %i64_any = or i1 %i64_base, %is_cast_i32_to_i64
-  br i1 %i64_any, label %i64_type, label %check_bool
+  %i64_base2 = or i1 %i64_base, %is_cast_i32_to_i64
+  br i1 %is_binary_for_i64, label %binary_type, label %check_i64_direct
+
+check_i64_direct:
+  br i1 %i64_base2, label %i64_type, label %check_bool
 
 check_bool:
   %is_call_bool = icmp eq i32 %kind, 31
@@ -656,6 +660,44 @@ name:
   %name_len = call i64 @weave_ast_text_len(ptr %ast, i64 %node_index)
   %type_kind = call i32 @weave_emit_lookup_local_type(ptr %ctx, i64 %name_start, i64 %name_len)
   ret i32 %type_kind
+
+binary_type:
+  %op_wide = call i64 @weave_ast_a(ptr %ast, i64 %node_index)
+  %op = trunc i64 %op_wide to i32
+  %is_add_i64 = icmp eq i32 %op, 11
+  %is_mul_i64 = icmp eq i32 %op, 12
+  %is_sub_i64 = icmp eq i32 %op, 27
+  %i64_a = or i1 %is_add_i64, %is_mul_i64
+  %i64_binary = or i1 %i64_a, %is_sub_i64
+  br i1 %i64_binary, label %i64_type, label %binary_check_bool
+
+binary_check_bool:
+  %is_lt_i32 = icmp eq i32 %op, 7
+  %is_ne_i32 = icmp eq i32 %op, 21
+  %is_eq_i32 = icmp eq i32 %op, 22
+  %is_ge_i32 = icmp eq i32 %op, 23
+  %is_le_i32 = icmp eq i32 %op, 24
+  %is_lt_i64 = icmp eq i32 %op, 13
+  %is_le_i64 = icmp eq i32 %op, 14
+  %is_ne_i64 = icmp eq i32 %op, 15
+  %is_eq_i64 = icmp eq i32 %op, 28
+  %is_and_bool = icmp eq i32 %op, 16
+  %is_or_bool = icmp eq i32 %op, 17
+  %is_eq_ptr = icmp eq i32 %op, 18
+  %is_ne_ptr = icmp eq i32 %op, 19
+  %b01 = or i1 %is_lt_i32, %is_ne_i32
+  %b23 = or i1 %is_eq_i32, %is_ge_i32
+  %b45 = or i1 %is_le_i32, %is_lt_i64
+  %b67 = or i1 %is_le_i64, %is_ne_i64
+  %b89 = or i1 %is_eq_i64, %is_and_bool
+  %b1011 = or i1 %is_or_bool, %is_eq_ptr
+  %b0123 = or i1 %b01, %b23
+  %b4567 = or i1 %b45, %b67
+  %b891011 = or i1 %b89, %b1011
+  %b01234567 = or i1 %b0123, %b4567
+  %b_without_ne_ptr = or i1 %b01234567, %b891011
+  %bool_binary = or i1 %b_without_ne_ptr, %is_ne_ptr
+  br i1 %bool_binary, label %bool_type, label %i32_type
 
 ptr_type:
   ret i32 58
@@ -2638,6 +2680,49 @@ fail:
 ; weave_emit_if_stmt
 ; ----------------------------------------------------------------------------
 
+define i32 @weave_stmt_terminates(ptr %ast, i64 %node_index) {
+entry:
+  %kind = call i32 @weave_ast_kind(ptr %ast, i64 %node_index)
+  %is_return = icmp eq i32 %kind, 4
+  %is_return_void = icmp eq i32 %kind, 27
+  %is_return_any = or i1 %is_return, %is_return_void
+  br i1 %is_return_any, label %yes, label %check_block
+
+check_block:
+  %is_block = icmp eq i32 %kind, 3
+  br i1 %is_block, label %block, label %check_if
+
+check_if:
+  %is_if = icmp eq i32 %kind, 5
+  br i1 %is_if, label %if_stmt, label %no
+
+block:
+  %list_head = call i64 @weave_ast_a(ptr %ast, i64 %node_index)
+  %empty = icmp slt i64 %list_head, 0
+  br i1 %empty, label %no, label %block_last
+
+block_last:
+  %last_stmt = call i64 @weave_ast_a(ptr %ast, i64 %list_head)
+  %last_terminates = call i32 @weave_stmt_terminates(ptr %ast, i64 %last_stmt)
+  ret i32 %last_terminates
+
+if_stmt:
+  %then_node = call i64 @weave_ast_b(ptr %ast, i64 %node_index)
+  %else_node = call i64 @weave_ast_c(ptr %ast, i64 %node_index)
+  %then_term_i32 = call i32 @weave_stmt_terminates(ptr %ast, i64 %then_node)
+  %else_term_i32 = call i32 @weave_stmt_terminates(ptr %ast, i64 %else_node)
+  %then_term = icmp ne i32 %then_term_i32, 0
+  %else_term = icmp ne i32 %else_term_i32, 0
+  %both_term = and i1 %then_term, %else_term
+  br i1 %both_term, label %yes, label %no
+
+yes:
+  ret i32 1
+
+no:
+  ret i32 0
+}
+
 define i32 @weave_emit_if_stmt(ptr %ctx, i64 %node_index) {
 entry:
   %ast = call ptr @weave_emit_ast(ptr %ctx)
@@ -2684,7 +2769,23 @@ then_label:
 then_body:
   %then_status = call i32 @weave_emit_stmt(ptr %ctx, i64 %then_node)
   %then_failed = icmp ne i32 %then_status, 0
-  br i1 %then_failed, label %fail, label %else_label
+  br i1 %then_failed, label %fail, label %then_branch_check
+
+then_branch_check:
+  %then_term_i32 = call i32 @weave_stmt_terminates(ptr %ast, i64 %then_node)
+  %then_term = icmp ne i32 %then_term_i32, 0
+  br i1 %then_term, label %else_label, label %then_branch_done
+
+then_branch_done:
+  %tb0 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.br_label)
+  %tb1 = call i32 @weave_emit_label_name(ptr %ctx, ptr @weave.emit.done_text, i64 %label_id)
+  %tb2 = call i32 @weave_emit_newline(ptr %ctx)
+  %tb0_failed = icmp ne i32 %tb0, 0
+  %tb1_failed = icmp ne i32 %tb1, 0
+  %tb2_failed = icmp ne i32 %tb2, 0
+  %tb01 = or i1 %tb0_failed, %tb1_failed
+  %tb_bad = or i1 %tb01, %tb2_failed
+  br i1 %tb_bad, label %fail, label %else_label
 
 else_label:
   %e0 = call i32 @weave_emit_label_name(ptr %ctx, ptr @weave.emit.else_text, i64 %label_id)
@@ -2697,7 +2798,39 @@ else_label:
 else_body:
   %else_status = call i32 @weave_emit_stmt(ptr %ctx, i64 %else_node)
   %else_failed = icmp ne i32 %else_status, 0
-  br i1 %else_failed, label %fail, label %success
+  br i1 %else_failed, label %fail, label %else_branch_check
+
+else_branch_check:
+  %else_term_i32 = call i32 @weave_stmt_terminates(ptr %ast, i64 %else_node)
+  %else_term = icmp ne i32 %else_term_i32, 0
+  br i1 %else_term, label %done_needed, label %else_branch_done
+
+else_branch_done:
+  %eb0 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.br_label)
+  %eb1 = call i32 @weave_emit_label_name(ptr %ctx, ptr @weave.emit.done_text, i64 %label_id)
+  %eb2 = call i32 @weave_emit_newline(ptr %ctx)
+  %eb0_failed = icmp ne i32 %eb0, 0
+  %eb1_failed = icmp ne i32 %eb1, 0
+  %eb2_failed = icmp ne i32 %eb2, 0
+  %eb01 = or i1 %eb0_failed, %eb1_failed
+  %eb_bad = or i1 %eb01, %eb2_failed
+  br i1 %eb_bad, label %fail, label %done_needed
+
+done_needed:
+  %then_term_again_i32 = call i32 @weave_stmt_terminates(ptr %ast, i64 %then_node)
+  %else_term_again_i32 = call i32 @weave_stmt_terminates(ptr %ast, i64 %else_node)
+  %then_term_again = icmp ne i32 %then_term_again_i32, 0
+  %else_term_again = icmp ne i32 %else_term_again_i32, 0
+  %both_term = and i1 %then_term_again, %else_term_again
+  br i1 %both_term, label %success, label %done_label
+
+done_label:
+  %d0 = call i32 @weave_emit_label_name(ptr %ctx, ptr @weave.emit.done_text, i64 %label_id)
+  %d1 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.colon_nl)
+  %d0_failed = icmp ne i32 %d0, 0
+  %d1_failed = icmp ne i32 %d1, 0
+  %d_bad = or i1 %d0_failed, %d1_failed
+  br i1 %d_bad, label %fail, label %success
 
 success:
   ret i32 0

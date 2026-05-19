@@ -222,6 +222,7 @@ main() {
   run_case "29_const_string_ptr" 42
   run_case "30_i64_sub_eq" 42
   run_case "31_not_bool" 42
+  run_case "32_codegen_join_and_i64_arg" 42
 
   log "all bootstrap tests passed"
 }
