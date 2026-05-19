@@ -313,9 +313,10 @@ fail:
 ;   (> a b)
 ;   (>= a b)
 ;   (name arg)
+;   (name arg arg)
 ;
-; Stage 0 calls are deliberately limited to one argument for now. This is enough
-; to build early compiler-shaped tests without designing a full argument list
+; Stage 0 calls are deliberately limited to two arguments for now. This is
+; enough for the curated bootstrap ladder without adding a full argument list
 ; representation too early.
 ;
 ; Returns AST node index or -1 on failure.
@@ -373,9 +374,21 @@ parse_call:
 
   %arg = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
   %arg_failed = icmp slt i64 %arg, 0
-  br i1 %arg_failed, label %fail, label %call_close
+  br i1 %arg_failed, label %fail, label %maybe_second_arg
+
+maybe_second_arg:
+  %after_arg_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %call_has_second_arg = icmp ne i32 %after_arg_kind, 2
+  br i1 %call_has_second_arg, label %parse_second_arg, label %call_close
+
+parse_second_arg:
+  %arg2 = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %arg2_failed = icmp slt i64 %arg2, 0
+  br i1 %arg2_failed, label %fail, label %call_close
 
 call_close:
+  %call_arg2 = phi i64 [-1, %maybe_second_arg], [%arg2, %parse_second_arg]
+  %call_arg_count = phi i64 [1, %maybe_second_arg], [2, %parse_second_arg]
   %call_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
   %call_close_failed = icmp ne i32 %call_close_status, 0
   br i1 %call_close_failed, label %fail, label %make_call
@@ -385,8 +398,8 @@ make_call:
     ptr %ast,
     i32 9,
     i64 %arg,
-    i64 0,
-    i64 0,
+    i64 %call_arg2,
+    i64 %call_arg_count,
     i64 %name_start,
     i64 %name_len
   )
@@ -824,14 +837,16 @@ fail:
 ; Parse:
 ;   (fn name body...)
 ;   (fn name param body...)
+;   (fn name param param body...)
 ;
-; Stage 0 supports either zero parameters or one bare parameter name. Explicit
+; Stage 0 supports up to two bare parameter names. Explicit
 ; return types and parameter lists are intentionally omitted for now.
 ;
 ; AST_FUNCTION:
 ;   a = body block node index
 ;   b = parameter name source start, or 0
 ;   c = parameter name source length, or 0
+;   body block text_start/text_len = second parameter name, or 0
 ;   text_start/text_len = function name
 ; ----------------------------------------------------------------------------
 
@@ -863,11 +878,21 @@ capture_param:
   %param_start = call i64 @weave_parser_current_start(ptr %parser)
   %param_len = call i64 @weave_parser_current_length(ptr %parser)
   call void @weave_parser_advance(ptr %parser)
+  %after_param_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %has_second_param = icmp eq i32 %after_param_kind, 3
+  br i1 %has_second_param, label %capture_second_param, label %parse_body
+
+capture_second_param:
+  %param2_start = call i64 @weave_parser_current_start(ptr %parser)
+  %param2_len = call i64 @weave_parser_current_length(ptr %parser)
+  call void @weave_parser_advance(ptr %parser)
   br label %parse_body
 
 parse_body:
-  %body_param_start = phi i64 [0, %capture_name], [%param_start, %capture_param]
-  %body_param_len = phi i64 [0, %capture_name], [%param_len, %capture_param]
+  %body_param_start = phi i64 [0, %capture_name], [%param_start, %capture_param], [%param_start, %capture_second_param]
+  %body_param_len = phi i64 [0, %capture_name], [%param_len, %capture_param], [%param_len, %capture_second_param]
+  %body_param2_start = phi i64 [0, %capture_name], [0, %capture_param], [%param2_start, %capture_second_param]
+  %body_param2_len = phi i64 [0, %capture_name], [0, %capture_param], [%param2_len, %capture_second_param]
   br label %body_loop
 
 body_loop:
@@ -902,8 +927,8 @@ consume_close:
     i64 %body_first,
     i64 %body_last,
     i64 %body_count,
-    i64 0,
-    i64 0
+    i64 %body_param2_start,
+    i64 %body_param2_len
   )
   %body_failed = icmp slt i64 %body, 0
   br i1 %body_failed, label %fail, label %make_node
