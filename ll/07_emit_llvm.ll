@@ -142,12 +142,17 @@ entry:
 @weave.emit.define_i32 = private unnamed_addr constant [13 x i8] c"define i32 @\00"
 @weave.emit.fn_sig = private unnamed_addr constant [6 x i8] c"() {\0A\00"
 @weave.emit.fn_sig_1_prefix = private unnamed_addr constant [7 x i8] c"(i32 %\00"
-@weave.emit.fn_sig_1_suffix = private unnamed_addr constant [5 x i8] c") {\0A\00"
+@weave.emit.fn_sig_1_suffix = private unnamed_addr constant [9 x i8] c".arg) {\0A\00"
 @weave.emit.entry = private unnamed_addr constant [8 x i8] c"entry:\0A\00"
 @weave.emit.ret_i32 = private unnamed_addr constant [11 x i8] c"  ret i32 \00"
 @weave.emit.close_fn = private unnamed_addr constant [4 x i8] c"}\0A\0A\00"
 @weave.emit.tmp_prefix = private unnamed_addr constant [3 x i8] c"%t\00"
 @weave.emit.percent = private unnamed_addr constant [2 x i8] c"%\00"
+@weave.emit.arg_suffix = private unnamed_addr constant [5 x i8] c".arg\00"
+@weave.emit.alloca_i32 = private unnamed_addr constant [15 x i8] c" = alloca i32\0A\00"
+@weave.emit.load_i32 = private unnamed_addr constant [19 x i8] c" = load i32, ptr %\00"
+@weave.emit.store_i32 = private unnamed_addr constant [13 x i8] c"  store i32 \00"
+@weave.emit.comma_ptr_percent = private unnamed_addr constant [8 x i8] c", ptr %\00"
 @weave.emit.label_prefix = private unnamed_addr constant [6 x i8] c"label\00"
 @weave.emit.eq = private unnamed_addr constant [12 x i8] c" = add i32 \00"
 @weave.emit.add = private unnamed_addr constant [12 x i8] c" = add i32 \00"
@@ -297,22 +302,6 @@ fail:
 
 define i32 @weave_emit_expr_operand(ptr %ctx, i64 %node_index) {
 entry:
-  %ast = call ptr @weave_emit_ast(ptr %ctx)
-  %kind = call i32 @weave_ast_kind(ptr %ast, i64 %node_index)
-  %is_name = icmp eq i32 %kind, 13
-  br i1 %is_name, label %name, label %value
-
-name:
-  %name_start = call i64 @weave_ast_text_start(ptr %ast, i64 %node_index)
-  %name_len = call i64 @weave_ast_text_len(ptr %ast, i64 %node_index)
-  %s0 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.percent)
-  %s1 = call i32 @weave_emit_source_slice(ptr %ctx, i64 %name_start, i64 %name_len)
-  %s0_failed = icmp ne i32 %s0, 0
-  %s1_failed = icmp ne i32 %s1, 0
-  %bad = or i1 %s0_failed, %s1_failed
-  br i1 %bad, label %fail, label %success
-
-value:
   %emitted = call i64 @weave_emit_expr(ptr %ctx, i64 %node_index)
   %failed = icmp eq i64 %emitted, -9223372036854775808
   br i1 %failed, label %fail, label %emit_operand
@@ -341,21 +330,11 @@ entry:
   %lhs_node = call i64 @weave_ast_b(ptr %ast, i64 %node_index)
   %rhs_node = call i64 @weave_ast_c(ptr %ast, i64 %node_index)
 
-  %lhs_kind = call i32 @weave_ast_kind(ptr %ast, i64 %lhs_node)
-  %lhs_is_name = icmp eq i32 %lhs_kind, 13
-  br i1 %lhs_is_name, label %rhs, label %emit_lhs
-
-emit_lhs:
   %lhs_value = call i64 @weave_emit_expr(ptr %ctx, i64 %lhs_node)
   %lhs_failed = icmp eq i64 %lhs_value, -9223372036854775808
   br i1 %lhs_failed, label %fail, label %rhs
 
 rhs:
-  %rhs_kind = call i32 @weave_ast_kind(ptr %ast, i64 %rhs_node)
-  %rhs_is_name = icmp eq i32 %rhs_kind, 13
-  br i1 %rhs_is_name, label %emit, label %emit_rhs
-
-emit_rhs:
   %rhs_value = call i64 @weave_emit_expr(ptr %ctx, i64 %rhs_node)
   %rhs_failed = icmp eq i64 %rhs_value, -9223372036854775808
   br i1 %rhs_failed, label %fail, label %emit
@@ -369,14 +348,14 @@ emit:
   %op = trunc i64 %op_wide to i32
   %op_text_status = call i32 @weave_emit_binary_op_text(ptr %ctx, i32 %op)
 
-  %s2 = call i32 @weave_emit_expr_operand(ptr %ctx, i64 %lhs_node)
+  %s2 = call i32 @weave_emit_operand(ptr %ctx, i64 %lhs_value)
 
   %is_cmp_op = icmp sge i32 %op, 5
   br i1 %is_cmp_op, label %emit_cmp_rhs, label %emit_i32_rhs
 
 emit_i32_rhs:
   %s3 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.comma_i32)
-  %s4 = call i32 @weave_emit_expr_operand(ptr %ctx, i64 %rhs_node)
+  %s4 = call i32 @weave_emit_operand(ptr %ctx, i64 %rhs_value)
   %s5 = call i32 @weave_emit_newline(ptr %ctx)
   %s3_failed = icmp ne i32 %s3, 0
   %s4_failed = icmp ne i32 %s4, 0
@@ -387,7 +366,7 @@ emit_i32_rhs:
 
 emit_cmp_rhs:
   %s6 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.comma_i32)
-  %s7 = call i32 @weave_emit_expr_operand(ptr %ctx, i64 %rhs_node)
+  %s7 = call i32 @weave_emit_operand(ptr %ctx, i64 %rhs_value)
   %s8 = call i32 @weave_emit_newline(ptr %ctx)
   %s6_failed = icmp ne i32 %s6, 0
   %s7_failed = icmp ne i32 %s7, 0
@@ -505,6 +484,42 @@ fail:
 }
 
 ; ----------------------------------------------------------------------------
+; weave_emit_name_expr
+; ----------------------------------------------------------------------------
+
+define i64 @weave_emit_name_expr(ptr %ctx, i64 %node_index) {
+entry:
+  %ast = call ptr @weave_emit_ast(ptr %ctx)
+  %name_start = call i64 @weave_ast_text_start(ptr %ast, i64 %node_index)
+  %name_len = call i64 @weave_ast_text_len(ptr %ast, i64 %node_index)
+  %temp = call i64 @weave_emit_next_temp(ptr %ctx)
+
+  %s0 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.tmp_prefix)
+  %temp_i32 = trunc i64 %temp to i32
+  %s1 = call i32 @weave_emit_i32(ptr %ctx, i32 %temp_i32)
+  %s2 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.load_i32)
+  %s3 = call i32 @weave_emit_source_slice(ptr %ctx, i64 %name_start, i64 %name_len)
+  %s4 = call i32 @weave_emit_newline(ptr %ctx)
+
+  %s0_failed = icmp ne i32 %s0, 0
+  %s1_failed = icmp ne i32 %s1, 0
+  %s2_failed = icmp ne i32 %s2, 0
+  %s3_failed = icmp ne i32 %s3, 0
+  %s4_failed = icmp ne i32 %s4, 0
+  %bad01 = or i1 %s0_failed, %s1_failed
+  %bad23 = or i1 %s2_failed, %s3_failed
+  %bad0123 = or i1 %bad01, %bad23
+  %bad = or i1 %bad0123, %s4_failed
+  br i1 %bad, label %fail, label %success
+
+success:
+  ret i64 %temp
+
+fail:
+  ret i64 -9223372036854775808
+}
+
+; ----------------------------------------------------------------------------
 ; weave_emit_expr
 ; ----------------------------------------------------------------------------
 ;
@@ -525,7 +540,11 @@ check_binary:
 
 check_call:
   %is_call = icmp eq i32 %kind, 9
-  br i1 %is_call, label %call, label %unsupported
+  br i1 %is_call, label %call, label %check_name
+
+check_name:
+  %is_name = icmp eq i32 %kind, 13
+  br i1 %is_name, label %name, label %unsupported
 
 integer:
   %value_wide = call i64 @weave_ast_a(ptr %ast, i64 %node_index)
@@ -540,6 +559,10 @@ binary:
 call:
   %call_value = call i64 @weave_emit_call_expr(ptr %ctx, i64 %node_index)
   ret i64 %call_value
+
+name:
+  %name_value = call i64 @weave_emit_name_expr(ptr %ctx, i64 %node_index)
+  ret i64 %name_value
 
 unsupported:
   ret i64 -9223372036854775808
@@ -560,11 +583,6 @@ entry:
   %name_len = call i64 @weave_ast_text_len(ptr %ast, i64 %node_index)
 
   %arg_value = call i64 @weave_emit_expr(ptr %ctx, i64 %arg_node)
-  %arg_kind = call i32 @weave_ast_kind(ptr %ast, i64 %arg_node)
-  %arg_is_name = icmp eq i32 %arg_kind, 13
-  br i1 %arg_is_name, label %emit, label %check_arg
-
-check_arg:
   %arg_failed = icmp eq i64 %arg_value, -9223372036854775808
   br i1 %arg_failed, label %fail, label %emit
 
@@ -576,7 +594,7 @@ emit:
   %s2 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.call_i32)
   %s3 = call i32 @weave_emit_source_slice(ptr %ctx, i64 %name_start, i64 %name_len)
   %s4 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.call_sig_1)
-  %s5 = call i32 @weave_emit_expr_operand(ptr %ctx, i64 %arg_node)
+  %s5 = call i32 @weave_emit_operand(ptr %ctx, i64 %arg_value)
   %s6 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.call_sig_end)
 
   %s0_failed = icmp ne i32 %s0, 0
@@ -609,30 +627,13 @@ define i32 @weave_emit_return_stmt(ptr %ctx, i64 %node_index) {
 entry:
   %ast = call ptr @weave_emit_ast(ptr %ctx)
   %expr_node = call i64 @weave_ast_a(ptr %ast, i64 %node_index)
-  %expr_kind = call i32 @weave_ast_kind(ptr %ast, i64 %expr_node)
-  %expr_is_name = icmp eq i32 %expr_kind, 13
-  br i1 %expr_is_name, label %emit, label %emit_value
-
-emit_value:
   %value = call i64 @weave_emit_expr(ptr %ctx, i64 %expr_node)
   %failed = icmp eq i64 %value, -9223372036854775808
   br i1 %failed, label %fail, label %emit
 
 emit:
-  %value_for_ret = phi i64 [0, %entry], [%value, %emit_value]
   %s0 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.ret_i32)
-  br i1 %expr_is_name, label %emit_name_operand, label %emit_value_operand
-
-emit_name_operand:
-  %s1_name = call i32 @weave_emit_expr_operand(ptr %ctx, i64 %expr_node)
-  br label %finish_ret
-
-emit_value_operand:
-  %s1_value = call i32 @weave_emit_operand(ptr %ctx, i64 %value_for_ret)
-  br label %finish_ret
-
-finish_ret:
-  %s1 = phi i32 [%s1_name, %emit_name_operand], [%s1_value, %emit_value_operand]
+  %s1 = call i32 @weave_emit_operand(ptr %ctx, i64 %value)
   %s2 = call i32 @weave_emit_newline(ptr %ctx)
   %s0_failed = icmp ne i32 %s0, 0
   %s1_failed = icmp ne i32 %s1, 0
@@ -659,35 +660,19 @@ entry:
   %name_start = call i64 @weave_ast_text_start(ptr %ast, i64 %node_index)
   %name_len = call i64 @weave_ast_text_len(ptr %ast, i64 %node_index)
 
-  %expr_kind = call i32 @weave_ast_kind(ptr %ast, i64 %expr_node)
-  %expr_is_name = icmp eq i32 %expr_kind, 13
-  br i1 %expr_is_name, label %emit_assignment, label %emit_value
-
-emit_value:
   %value = call i64 @weave_emit_expr(ptr %ctx, i64 %expr_node)
   %failed = icmp eq i64 %value, -9223372036854775808
   br i1 %failed, label %fail, label %emit_assignment
 
 emit_assignment:
-  %value_for_let = phi i64 [0, %entry], [%value, %emit_value]
   %s0 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.percent)
   %s1 = call i32 @weave_emit_source_slice(ptr %ctx, i64 %name_start, i64 %name_len)
-  %s2 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.eq)
-  %s3 = call i32 @weave_emit_i32(ptr %ctx, i32 0)
-  %s4 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.comma_i32)
-  br i1 %expr_is_name, label %emit_name_operand, label %emit_value_operand
-
-emit_name_operand:
-  %s5_name = call i32 @weave_emit_expr_operand(ptr %ctx, i64 %expr_node)
-  br label %finish
-
-emit_value_operand:
-  %s5_value = call i32 @weave_emit_operand(ptr %ctx, i64 %value_for_let)
-  br label %finish
-
-finish:
-  %s5 = phi i32 [%s5_name, %emit_name_operand], [%s5_value, %emit_value_operand]
-  %s6 = call i32 @weave_emit_newline(ptr %ctx)
+  %s2 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.alloca_i32)
+  %s3 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.store_i32)
+  %s4 = call i32 @weave_emit_operand(ptr %ctx, i64 %value)
+  %s5 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.comma_ptr_percent)
+  %s6 = call i32 @weave_emit_source_slice(ptr %ctx, i64 %name_start, i64 %name_len)
+  %s7 = call i32 @weave_emit_newline(ptr %ctx)
   %s0_failed = icmp ne i32 %s0, 0
   %s1_failed = icmp ne i32 %s1, 0
   %s2_failed = icmp ne i32 %s2, 0
@@ -695,12 +680,53 @@ finish:
   %s4_failed = icmp ne i32 %s4, 0
   %s5_failed = icmp ne i32 %s5, 0
   %s6_failed = icmp ne i32 %s6, 0
+  %s7_failed = icmp ne i32 %s7, 0
   %bad01 = or i1 %s0_failed, %s1_failed
   %bad23 = or i1 %s2_failed, %s3_failed
   %bad45 = or i1 %s4_failed, %s5_failed
   %bad0123 = or i1 %bad01, %bad23
   %bad012345 = or i1 %bad0123, %bad45
-  %bad = or i1 %bad012345, %s6_failed
+  %bad67 = or i1 %s6_failed, %s7_failed
+  %bad = or i1 %bad012345, %bad67
+  br i1 %bad, label %fail, label %success
+
+success:
+  ret i32 0
+
+fail:
+  ret i32 1
+}
+
+; ----------------------------------------------------------------------------
+; weave_emit_set_stmt
+; ----------------------------------------------------------------------------
+
+define i32 @weave_emit_set_stmt(ptr %ctx, i64 %node_index) {
+entry:
+  %ast = call ptr @weave_emit_ast(ptr %ctx)
+  %expr_node = call i64 @weave_ast_a(ptr %ast, i64 %node_index)
+  %name_start = call i64 @weave_ast_text_start(ptr %ast, i64 %node_index)
+  %name_len = call i64 @weave_ast_text_len(ptr %ast, i64 %node_index)
+
+  %value = call i64 @weave_emit_expr(ptr %ctx, i64 %expr_node)
+  %failed = icmp eq i64 %value, -9223372036854775808
+  br i1 %failed, label %fail, label %emit_store
+
+emit_store:
+  %s0 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.store_i32)
+  %s1 = call i32 @weave_emit_operand(ptr %ctx, i64 %value)
+  %s2 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.comma_ptr_percent)
+  %s3 = call i32 @weave_emit_source_slice(ptr %ctx, i64 %name_start, i64 %name_len)
+  %s4 = call i32 @weave_emit_newline(ptr %ctx)
+  %s0_failed = icmp ne i32 %s0, 0
+  %s1_failed = icmp ne i32 %s1, 0
+  %s2_failed = icmp ne i32 %s2, 0
+  %s3_failed = icmp ne i32 %s3, 0
+  %s4_failed = icmp ne i32 %s4, 0
+  %bad01 = or i1 %s0_failed, %s1_failed
+  %bad23 = or i1 %s2_failed, %s3_failed
+  %bad0123 = or i1 %bad01, %bad23
+  %bad = or i1 %bad0123, %s4_failed
   br i1 %bad, label %fail, label %success
 
 success:
@@ -737,7 +763,11 @@ check_return:
 
 check_let:
   %is_let = icmp eq i32 %kind, 7
-  br i1 %is_let, label %emit_node, label %after_node
+  br i1 %is_let, label %emit_node, label %check_set
+
+check_set:
+  %is_set = icmp eq i32 %kind, 8
+  br i1 %is_set, label %emit_node, label %after_node
 
 emit_node:
   %status = call i32 @weave_emit_stmt(ptr %ctx, i64 %i)
@@ -759,7 +789,7 @@ fail:
 ; weave_emit_stmt
 ; ----------------------------------------------------------------------------
 ;
-; Stage 0 emits blocks, let statements, return statements, and expression
+; Stage 0 emits blocks, let/set statements, return statements, and expression
 ; statements. More statement kinds are admitted one ladder test at a time.
 
 
@@ -777,7 +807,11 @@ check_return:
 
 check_let:
   %is_let = icmp eq i32 %kind, 7
-  br i1 %is_let, label %let_stmt, label %expr_stmt
+  br i1 %is_let, label %let_stmt, label %check_set
+
+check_set:
+  %is_set = icmp eq i32 %kind, 8
+  br i1 %is_set, label %set_stmt, label %expr_stmt
 
 block_stmt:
   %block_status = call i32 @weave_emit_block(ptr %ctx, i64 %node_index)
@@ -790,6 +824,10 @@ return_stmt:
 let_stmt:
   %let_status = call i32 @weave_emit_let_stmt(ptr %ctx, i64 %node_index)
   ret i32 %let_status
+
+set_stmt:
+  %set_status = call i32 @weave_emit_set_stmt(ptr %ctx, i64 %node_index)
+  ret i32 %set_status
 
 expr_stmt:
   %value = call i64 @weave_emit_expr(ptr %ctx, i64 %node_index)
@@ -849,7 +887,42 @@ emit_entry:
   %head_bad1 = or i1 %s2_failed, %s3_failed
   %head_bad2 = or i1 %head_bad1, %s2_param_failed
   %head_bad = or i1 %head_bad0, %head_bad2
-  br i1 %head_bad, label %fail, label %body
+  br i1 %head_bad, label %fail, label %maybe_init_param
+
+maybe_init_param:
+  br i1 %has_param, label %init_param, label %body
+
+init_param:
+  %p0 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.percent)
+  %p1 = call i32 @weave_emit_source_slice(ptr %ctx, i64 %param_start, i64 %param_len)
+  %p2 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.alloca_i32)
+  %p3 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.store_i32)
+  %p4 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.percent)
+  %p5 = call i32 @weave_emit_source_slice(ptr %ctx, i64 %param_start, i64 %param_len)
+  %p6 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.arg_suffix)
+  %p7 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.comma_ptr_percent)
+  %p8 = call i32 @weave_emit_source_slice(ptr %ctx, i64 %param_start, i64 %param_len)
+  %p9 = call i32 @weave_emit_newline(ptr %ctx)
+  %p0_failed = icmp ne i32 %p0, 0
+  %p1_failed = icmp ne i32 %p1, 0
+  %p2_failed = icmp ne i32 %p2, 0
+  %p3_failed = icmp ne i32 %p3, 0
+  %p4_failed = icmp ne i32 %p4, 0
+  %p5_failed = icmp ne i32 %p5, 0
+  %p6_failed = icmp ne i32 %p6, 0
+  %p7_failed = icmp ne i32 %p7, 0
+  %p8_failed = icmp ne i32 %p8, 0
+  %p9_failed = icmp ne i32 %p9, 0
+  %p_bad01 = or i1 %p0_failed, %p1_failed
+  %p_bad23 = or i1 %p2_failed, %p3_failed
+  %p_bad45 = or i1 %p4_failed, %p5_failed
+  %p_bad67 = or i1 %p6_failed, %p7_failed
+  %p_bad89 = or i1 %p8_failed, %p9_failed
+  %p_bad0123 = or i1 %p_bad01, %p_bad23
+  %p_bad4567 = or i1 %p_bad45, %p_bad67
+  %p_bad01234567 = or i1 %p_bad0123, %p_bad4567
+  %p_bad = or i1 %p_bad01234567, %p_bad89
+  br i1 %p_bad, label %fail, label %body
 
 body:
   %body_status = call i32 @weave_emit_stmt(ptr %ctx, i64 %body_node)
