@@ -162,6 +162,9 @@ entry:
 @weave.emit.add_i64 = private unnamed_addr constant [12 x i8] c" = add i64 \00"
 @weave.emit.mul_i64 = private unnamed_addr constant [12 x i8] c" = mul i64 \00"
 @weave.emit.icmp_lt = private unnamed_addr constant [17 x i8] c" = icmp slt i32 \00"
+@weave.emit.icmp_lt_i64 = private unnamed_addr constant [17 x i8] c" = icmp slt i64 \00"
+@weave.emit.icmp_le_i64 = private unnamed_addr constant [17 x i8] c" = icmp sle i64 \00"
+@weave.emit.icmp_ne_i64 = private unnamed_addr constant [16 x i8] c" = icmp ne i64 \00"
 @weave.emit.comma_i32 = private unnamed_addr constant [3 x i8] c", \00"
 @weave.emit.br_i1 = private unnamed_addr constant [9 x i8] c"  br i1 \00"
 @weave.emit.comma_label_percent = private unnamed_addr constant [10 x i8] c", label %\00"
@@ -479,7 +482,19 @@ check_add_i64:
 
 check_mul_i64:
   %is_mul_i64 = icmp eq i32 %op, 12
-  br i1 %is_mul_i64, label %mul_i64, label %fail
+  br i1 %is_mul_i64, label %mul_i64, label %check_lt_i64
+
+check_lt_i64:
+  %is_lt_i64 = icmp eq i32 %op, 13
+  br i1 %is_lt_i64, label %lt_i64, label %check_le_i64
+
+check_le_i64:
+  %is_le_i64 = icmp eq i32 %op, 14
+  br i1 %is_le_i64, label %le_i64, label %check_ne_i64
+
+check_ne_i64:
+  %is_ne_i64 = icmp eq i32 %op, 15
+  br i1 %is_ne_i64, label %ne_i64, label %fail
 
 add_i64:
   %s_add_i64 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.add_i64)
@@ -488,6 +503,18 @@ add_i64:
 mul_i64:
   %s_mul_i64 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.mul_i64)
   ret i32 %s_mul_i64
+
+lt_i64:
+  %s_lt_i64 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.icmp_lt_i64)
+  ret i32 %s_lt_i64
+
+le_i64:
+  %s_le_i64 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.icmp_le_i64)
+  ret i32 %s_le_i64
+
+ne_i64:
+  %s_ne_i64 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.icmp_ne_i64)
+  ret i32 %s_ne_i64
 
 fail:
   ret i32 1

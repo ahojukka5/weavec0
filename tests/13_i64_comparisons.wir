@@ -1,0 +1,42 @@
+(core-module
+  (core-version 1)
+
+  (decls
+
+    (fn main
+      (params)
+      (returns i32)
+
+      (body
+        (if
+          (lt_i64
+            (const_i64 1)
+            (const_i64 2))
+
+          (then
+            (if
+              (le_i64
+                (const_i64 2)
+                (const_i64 2))
+
+              (then
+                (if
+                  (ne_i64
+                    (const_i64 3)
+                    (const_i64 4))
+
+                  (then
+                    (return
+                      (const_i32 42)))
+
+                  (else
+                    (return
+                      (const_i32 0)))))
+
+              (else
+                (return
+                  (const_i32 0)))))
+
+          (else
+            (return
+              (const_i32 0))))))))

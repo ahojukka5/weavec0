@@ -191,6 +191,9 @@ entry:
 @weave.kw.mul_i64 = private unnamed_addr constant [8 x i8] c"mul_i64\00"
 @weave.kw.add_i32 = private unnamed_addr constant [8 x i8] c"add_i32\00"
 @weave.kw.print = private unnamed_addr constant [6 x i8] c"print\00"
+@weave.kw.lt_i64 = private unnamed_addr constant [7 x i8] c"lt_i64\00"
+@weave.kw.le_i64 = private unnamed_addr constant [7 x i8] c"le_i64\00"
+@weave.kw.ne_i64 = private unnamed_addr constant [7 x i8] c"ne_i64\00"
 
 define i32 @weave_keyword_kind(ptr %text, i64 %length) {
 entry:
@@ -336,7 +339,22 @@ check_add_i32:
 check_print:
   %is_print = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.print, i64 5)
   %print_yes = icmp ne i32 %is_print, 0
-  br i1 %print_yes, label %return_print, label %return_ident
+  br i1 %print_yes, label %return_print, label %check_lt_i64
+
+check_lt_i64:
+  %is_lt_i64 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.lt_i64, i64 6)
+  %lt_i64_yes = icmp ne i32 %is_lt_i64, 0
+  br i1 %lt_i64_yes, label %return_lt_i64, label %check_le_i64
+
+check_le_i64:
+  %is_le_i64 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.le_i64, i64 6)
+  %le_i64_yes = icmp ne i32 %is_le_i64, 0
+  br i1 %le_i64_yes, label %return_le_i64, label %check_ne_i64
+
+check_ne_i64:
+  %is_ne_i64 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.ne_i64, i64 6)
+  %ne_i64_yes = icmp ne i32 %is_ne_i64, 0
+  br i1 %ne_i64_yes, label %return_ne_i64, label %return_ident
 
 return_fn:
   ret i32 6
@@ -424,6 +442,15 @@ return_add_i32:
 
 return_print:
   ret i32 45
+
+return_lt_i64:
+  ret i32 46
+
+return_le_i64:
+  ret i32 47
+
+return_ne_i64:
+  ret i32 48
 
 return_ident:
   ret i32 3

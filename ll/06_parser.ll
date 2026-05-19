@@ -182,7 +182,19 @@ check_add_i64:
 
 check_mul_i64:
   %is_mul_i64 = icmp eq i32 %kind, 43
-  br i1 %is_mul_i64, label %mul_i64, label %none
+  br i1 %is_mul_i64, label %mul_i64, label %check_lt_i64
+
+check_lt_i64:
+  %is_lt_i64 = icmp eq i32 %kind, 46
+  br i1 %is_lt_i64, label %lt_i64, label %check_le_i64
+
+check_le_i64:
+  %is_le_i64 = icmp eq i32 %kind, 47
+  br i1 %is_le_i64, label %le_i64, label %check_ne_i64
+
+check_ne_i64:
+  %is_ne_i64 = icmp eq i32 %kind, 48
+  br i1 %is_ne_i64, label %ne_i64, label %none
 
 add:
   ret i32 1
@@ -195,6 +207,15 @@ add_i64:
 
 mul_i64:
   ret i32 12
+
+lt_i64:
+  ret i32 13
+
+le_i64:
+  ret i32 14
+
+ne_i64:
+  ret i32 15
 
 none:
   ret i32 0
@@ -311,7 +332,19 @@ check_add_i64:
 
 check_mul_i64:
   %is_mul_i64 = icmp eq i32 %head_kind, 43
-  br i1 %is_mul_i64, label %parse_mul_i64, label %check_print
+  br i1 %is_mul_i64, label %parse_mul_i64, label %check_lt_i64
+
+check_lt_i64:
+  %is_lt_i64 = icmp eq i32 %head_kind, 46
+  br i1 %is_lt_i64, label %parse_lt_i64, label %check_le_i64
+
+check_le_i64:
+  %is_le_i64 = icmp eq i32 %head_kind, 47
+  br i1 %is_le_i64, label %parse_le_i64, label %check_ne_i64
+
+check_ne_i64:
+  %is_ne_i64 = icmp eq i32 %head_kind, 48
+  br i1 %is_ne_i64, label %parse_ne_i64, label %check_print
 
 check_print:
   %is_print = icmp eq i32 %head_kind, 45
@@ -582,6 +615,15 @@ make_mul64:
     i64 0
   )
   ret i64 %mul64_node
+
+parse_lt_i64:
+  br label %parse_binary
+
+parse_le_i64:
+  br label %parse_binary
+
+parse_ne_i64:
+  br label %parse_binary
 
 parse_print:
   %print_start = call i64 @weave_parser_current_start(ptr %parser)
