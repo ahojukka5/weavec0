@@ -179,6 +179,7 @@ entry:
 @weave.emit.call_sig_1 = private unnamed_addr constant [6 x i8] c"(i32 \00"
 @weave.emit.call_sig_2_mid = private unnamed_addr constant [7 x i8] c", i32 \00"
 @weave.emit.call_sig_end = private unnamed_addr constant [3 x i8] c")\0A\00"
+@weave.emit.add_i32_name = private unnamed_addr constant [8 x i8] c"add_i32\00"
 @weave.emit.print_name = private unnamed_addr constant [6 x i8] c"print\00"
 @weave.emit.str_global_prefix = private unnamed_addr constant [6 x i8] c"@.str\00"
 @weave.emit.str_global_mid = private unnamed_addr constant [35 x i8] c" = private unnamed_addr constant [\00"
@@ -707,6 +708,8 @@ print_success:
   ret i64 %print_temp
 
 normal_call:
+  %is_add_i32_i32 = call i32 @weave_bytes_equal(ptr %name_text, i64 %name_len, ptr @weave.emit.add_i32_name, i64 7)
+  %is_add_i32 = icmp ne i32 %is_add_i32_i32, 0
   %arg_value = call i64 @weave_emit_expr(ptr %ctx, i64 %arg_node)
   %arg_failed = icmp eq i64 %arg_value, -9223372036854775808
   br i1 %arg_failed, label %fail, label %maybe_arg2
@@ -722,6 +725,38 @@ emit_arg2_value:
 
 emit:
   %arg2_value_for_call = phi i64 [0, %maybe_arg2], [%arg2_value, %emit_arg2_value]
+  br i1 %is_add_i32, label %emit_add_check, label %emit_call
+
+emit_add_check:
+  br i1 %has_arg2, label %emit_add, label %fail
+
+emit_add:
+  %add_temp = call i64 @weave_emit_next_temp(ptr %ctx)
+  %add_s0 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.tmp_prefix)
+  %add_temp_i32 = trunc i64 %add_temp to i32
+  %add_s1 = call i32 @weave_emit_i32(ptr %ctx, i32 %add_temp_i32)
+  %add_s2 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.add)
+  %add_s3 = call i32 @weave_emit_operand(ptr %ctx, i64 %arg_value)
+  %add_s4 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.comma_i32)
+  %add_s5 = call i32 @weave_emit_operand(ptr %ctx, i64 %arg2_value_for_call)
+  %add_s6 = call i32 @weave_emit_newline(ptr %ctx)
+
+  %add_s0_failed = icmp ne i32 %add_s0, 0
+  %add_s1_failed = icmp ne i32 %add_s1, 0
+  %add_s2_failed = icmp ne i32 %add_s2, 0
+  %add_s3_failed = icmp ne i32 %add_s3, 0
+  %add_s4_failed = icmp ne i32 %add_s4, 0
+  %add_s5_failed = icmp ne i32 %add_s5, 0
+  %add_s6_failed = icmp ne i32 %add_s6, 0
+  %add_bad01 = or i1 %add_s0_failed, %add_s1_failed
+  %add_bad23 = or i1 %add_s2_failed, %add_s3_failed
+  %add_bad45 = or i1 %add_s4_failed, %add_s5_failed
+  %add_bad0123 = or i1 %add_bad01, %add_bad23
+  %add_bad012345 = or i1 %add_bad0123, %add_bad45
+  %add_bad = or i1 %add_bad012345, %add_s6_failed
+  br i1 %add_bad, label %fail, label %success
+
+emit_call:
   %temp = call i64 @weave_emit_next_temp(ptr %ctx)
   %s0 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.tmp_prefix)
   %temp_i32 = trunc i64 %temp to i32
@@ -741,7 +776,7 @@ emit_arg2_text:
   br label %emit_call_end
 
 emit_call_end:
-  %s6_arg2_status = phi i1 [false, %emit], [%s6_arg2_failed, %emit_arg2_text]
+  %s6_arg2_status = phi i1 [false, %emit_call], [%s6_arg2_failed, %emit_arg2_text]
   %s6 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.call_sig_end)
 
   %s0_failed = icmp ne i32 %s0, 0
@@ -761,7 +796,8 @@ emit_call_end:
   br i1 %bad, label %fail, label %success
 
 success:
-  ret i64 %temp
+  %result_temp = phi i64 [%add_temp, %emit_add], [%temp, %emit_call_end]
+  ret i64 %result_temp
 
 fail:
   ret i64 -9223372036854775808
