@@ -214,7 +214,31 @@ check_ne_ptr:
 
 check_mod_i32:
   %is_mod_i32 = icmp eq i32 %kind, 69
-  br i1 %is_mod_i32, label %mod_i32, label %none
+  br i1 %is_mod_i32, label %mod_i32, label %check_ne_i32
+
+check_ne_i32:
+  %is_ne_i32 = icmp eq i32 %kind, 74
+  br i1 %is_ne_i32, label %ne_i32, label %check_eq_i32
+
+check_eq_i32:
+  %is_eq_i32 = icmp eq i32 %kind, 75
+  br i1 %is_eq_i32, label %eq_i32, label %check_ge_i32
+
+check_ge_i32:
+  %is_ge_i32 = icmp eq i32 %kind, 76
+  br i1 %is_ge_i32, label %ge_i32, label %check_le_i32
+
+check_le_i32:
+  %is_le_i32 = icmp eq i32 %kind, 77
+  br i1 %is_le_i32, label %le_i32, label %check_mul_i32
+
+check_mul_i32:
+  %is_mul_i32 = icmp eq i32 %kind, 78
+  br i1 %is_mul_i32, label %mul_i32, label %check_div_i32
+
+check_div_i32:
+  %is_div_i32 = icmp eq i32 %kind, 79
+  br i1 %is_div_i32, label %div_i32, label %none
 
 add:
   ret i32 1
@@ -251,6 +275,24 @@ ne_ptr:
 
 mod_i32:
   ret i32 20
+
+ne_i32:
+  ret i32 21
+
+eq_i32:
+  ret i32 22
+
+ge_i32:
+  ret i32 23
+
+le_i32:
+  ret i32 24
+
+mul_i32:
+  ret i32 25
+
+div_i32:
+  ret i32 26
 
 none:
   ret i32 0
@@ -529,7 +571,11 @@ check_ptr_add:
 
 check_load_i64:
   %is_load_i64 = icmp eq i32 %head_kind, 63
-  br i1 %is_load_i64, label %parse_load_i64, label %check_load_ptr
+  br i1 %is_load_i64, label %parse_load_i64, label %check_load_i32
+
+check_load_i32:
+  %is_load_i32 = icmp eq i32 %head_kind, 80
+  br i1 %is_load_i32, label %parse_load_i32, label %check_load_ptr
 
 check_load_ptr:
   %is_load_ptr = icmp eq i32 %head_kind, 70
@@ -553,7 +599,11 @@ check_lt_i32:
 
 check_cast_i64_to_i32:
   %is_cast_i64_to_i32 = icmp eq i32 %head_kind, 40
-  br i1 %is_cast_i64_to_i32, label %parse_cast_i64_to_i32, label %check_add_i64
+  br i1 %is_cast_i64_to_i32, label %parse_cast_i64_to_i32, label %check_cast_i32_to_i64
+
+check_cast_i32_to_i64:
+  %is_cast_i32_to_i64 = icmp eq i32 %head_kind, 82
+  br i1 %is_cast_i32_to_i64, label %parse_cast_i32_to_i64, label %check_add_i64
 
 check_add_i64:
   %is_add_i64 = icmp eq i32 %head_kind, 42
@@ -928,6 +978,29 @@ make_load_i64:
   )
   ret i64 %load_i64_node
 
+parse_load_i32:
+  call void @weave_parser_advance(ptr %parser)
+  %load_i32_ptr = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %load_i32_ptr_failed = icmp slt i64 %load_i32_ptr, 0
+  br i1 %load_i32_ptr_failed, label %fail, label %load_i32_close
+
+load_i32_close:
+  %load_i32_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %load_i32_close_failed = icmp ne i32 %load_i32_close_status, 0
+  br i1 %load_i32_close_failed, label %fail, label %make_load_i32
+
+make_load_i32:
+  %load_i32_node = call i64 @weave_ast_push(
+    ptr %ast,
+    i32 32,
+    i64 %load_i32_ptr,
+    i64 0,
+    i64 0,
+    i64 0,
+    i64 0
+  )
+  ret i64 %load_i32_node
+
 parse_load_ptr:
   call void @weave_parser_advance(ptr %parser)
   %load_ptr_ptr = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
@@ -1065,6 +1138,29 @@ cast_return:
     i64 0
   )
   ret i64 %cast_node
+
+parse_cast_i32_to_i64:
+  call void @weave_parser_advance(ptr %parser)
+  %cast32_expr = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %cast32_expr_failed = icmp slt i64 %cast32_expr, 0
+  br i1 %cast32_expr_failed, label %fail, label %cast32_close
+
+cast32_close:
+  %cast32_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %cast32_close_failed = icmp ne i32 %cast32_close_status, 0
+  br i1 %cast32_close_failed, label %fail, label %cast32_return
+
+cast32_return:
+  %cast32_node = call i64 @weave_ast_push(
+    ptr %ast,
+    i32 34,
+    i64 %cast32_expr,
+    i64 0,
+    i64 0,
+    i64 0,
+    i64 0
+  )
+  ret i64 %cast32_node
 
 parse_add_i64:
   call void @weave_parser_advance(ptr %parser)
@@ -1467,6 +1563,48 @@ fail:
   ret i64 -1
 }
 
+define i64 @weave_parse_store_i32_stmt(ptr %parser, ptr %ast) {
+entry:
+  %open_status = call i32 @weave_parser_expect(ptr %parser, i32 1)
+  %open_failed = icmp ne i32 %open_status, 0
+  br i1 %open_failed, label %fail, label %expect_store
+
+expect_store:
+  %store_status = call i32 @weave_parser_expect(ptr %parser, i32 81)
+  %store_failed = icmp ne i32 %store_status, 0
+  br i1 %store_failed, label %fail, label %parse_ptr
+
+parse_ptr:
+  %ptr_node = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %ptr_failed = icmp slt i64 %ptr_node, 0
+  br i1 %ptr_failed, label %fail, label %parse_value
+
+parse_value:
+  %value_node = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %value_failed = icmp slt i64 %value_node, 0
+  br i1 %value_failed, label %fail, label %close
+
+close:
+  %close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %close_failed = icmp ne i32 %close_status, 0
+  br i1 %close_failed, label %fail, label %make_node
+
+make_node:
+  %node = call i64 @weave_ast_push(
+    ptr %ast,
+    i32 33,
+    i64 %ptr_node,
+    i64 %value_node,
+    i64 0,
+    i64 0,
+    i64 0
+  )
+  ret i64 %node
+
+fail:
+  ret i64 -1
+}
+
 ; ----------------------------------------------------------------------------
 ; weave_parse_store_i8_stmt
 ;
@@ -1794,7 +1932,11 @@ check_set:
 
 check_store_i64:
   %is_store_i64 = icmp eq i32 %head_kind, 64
-  br i1 %is_store_i64, label %store_i64_stmt, label %check_store_ptr
+  br i1 %is_store_i64, label %store_i64_stmt, label %check_store_i32
+
+check_store_i32:
+  %is_store_i32 = icmp eq i32 %head_kind, 81
+  br i1 %is_store_i32, label %store_i32_stmt, label %check_store_ptr
 
 check_store_ptr:
   %is_store_ptr = icmp eq i32 %head_kind, 71
@@ -1835,6 +1977,10 @@ set_stmt:
 store_i64_stmt:
   %store_i64_node = call i64 @weave_parse_store_i64_stmt(ptr %parser, ptr %ast)
   ret i64 %store_i64_node
+
+store_i32_stmt:
+  %store_i32_node = call i64 @weave_parse_store_i32_stmt(ptr %parser, ptr %ast)
+  ret i64 %store_i32_node
 
 store_ptr_stmt:
   %store_ptr_node = call i64 @weave_parse_store_ptr_stmt(ptr %parser, ptr %ast)

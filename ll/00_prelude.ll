@@ -179,6 +179,15 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; TOKEN_STORE_PTR    = 71
 ; TOKEN_BOOL         = 72
 ; TOKEN_CALL_BOOL    = 73
+; TOKEN_NE_I32       = 74
+; TOKEN_EQ_I32       = 75
+; TOKEN_GE_I32       = 76
+; TOKEN_LE_I32       = 77
+; TOKEN_MUL_I32      = 78
+; TOKEN_DIV_I32      = 79
+; TOKEN_LOAD_I32     = 80
+; TOKEN_STORE_I32    = 81
+; TOKEN_CAST_I32_TO_I64 = 82
 ;
 ; Add new token kinds only when a bootstrap test requires them.
 
@@ -217,6 +226,9 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; AST_STORE_PTR_STMT = 29
 ; AST_PARAM          = 30
 ; AST_CALL_BOOL_EXPR = 31
+; AST_LOAD_I32_EXPR  = 32
+; AST_STORE_I32_STMT = 33
+; AST_CAST_I32_TO_I64_EXPR = 34
 ;
 ; Keep this list small. Stage 0 exists to cross the bootstrap gap, not to model
 ; the complete future Weave language.
@@ -245,6 +257,12 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; BIN_EQ_PTR   = 18
 ; BIN_NE_PTR   = 19
 ; BIN_MOD_I32  = 20
+; BIN_NE_I32   = 21
+; BIN_EQ_I32   = 22
+; BIN_GE_I32   = 23
+; BIN_LE_I32   = 24
+; BIN_MUL_I32  = 25
+; BIN_DIV_I32  = 26
 
 ; ----------------------------------------------------------------------------
 ; Exit/status conventions

@@ -218,6 +218,7 @@ main() {
   run_case "25_ptr_params_call_i32" 42
   run_case "26_bool_return" 42
   run_case "27_three_arg_function" 42
+  run_case "28_i32_memory_and_cast" 42
 
   log "all bootstrap tests passed"
 }

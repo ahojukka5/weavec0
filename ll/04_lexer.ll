@@ -219,6 +219,15 @@ entry:
 @weave.kw.store_ptr = private unnamed_addr constant [10 x i8] c"store_ptr\00"
 @weave.kw.bool = private unnamed_addr constant [5 x i8] c"bool\00"
 @weave.kw.call_bool = private unnamed_addr constant [10 x i8] c"call_bool\00"
+@weave.kw.ne_i32 = private unnamed_addr constant [7 x i8] c"ne_i32\00"
+@weave.kw.eq_i32 = private unnamed_addr constant [7 x i8] c"eq_i32\00"
+@weave.kw.ge_i32 = private unnamed_addr constant [7 x i8] c"ge_i32\00"
+@weave.kw.le_i32 = private unnamed_addr constant [7 x i8] c"le_i32\00"
+@weave.kw.mul_i32 = private unnamed_addr constant [8 x i8] c"mul_i32\00"
+@weave.kw.div_i32 = private unnamed_addr constant [8 x i8] c"div_i32\00"
+@weave.kw.load_i32 = private unnamed_addr constant [9 x i8] c"load_i32\00"
+@weave.kw.store_i32 = private unnamed_addr constant [10 x i8] c"store_i32\00"
+@weave.kw.cast_i32_to_i64 = private unnamed_addr constant [16 x i8] c"cast_i32_to_i64\00"
 
 define i32 @weave_keyword_kind(ptr %text, i64 %length) {
 entry:
@@ -504,7 +513,52 @@ check_bool_type:
 check_call_bool:
   %is_call_bool = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.call_bool, i64 9)
   %call_bool_yes = icmp ne i32 %is_call_bool, 0
-  br i1 %call_bool_yes, label %return_call_bool, label %return_ident
+  br i1 %call_bool_yes, label %return_call_bool, label %check_ne_i32
+
+check_ne_i32:
+  %is_ne_i32 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.ne_i32, i64 6)
+  %ne_i32_yes = icmp ne i32 %is_ne_i32, 0
+  br i1 %ne_i32_yes, label %return_ne_i32, label %check_eq_i32
+
+check_eq_i32:
+  %is_eq_i32 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.eq_i32, i64 6)
+  %eq_i32_yes = icmp ne i32 %is_eq_i32, 0
+  br i1 %eq_i32_yes, label %return_eq_i32, label %check_ge_i32
+
+check_ge_i32:
+  %is_ge_i32 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.ge_i32, i64 6)
+  %ge_i32_yes = icmp ne i32 %is_ge_i32, 0
+  br i1 %ge_i32_yes, label %return_ge_i32, label %check_le_i32
+
+check_le_i32:
+  %is_le_i32 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.le_i32, i64 6)
+  %le_i32_yes = icmp ne i32 %is_le_i32, 0
+  br i1 %le_i32_yes, label %return_le_i32, label %check_mul_i32
+
+check_mul_i32:
+  %is_mul_i32 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.mul_i32, i64 7)
+  %mul_i32_yes = icmp ne i32 %is_mul_i32, 0
+  br i1 %mul_i32_yes, label %return_mul_i32, label %check_div_i32
+
+check_div_i32:
+  %is_div_i32 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.div_i32, i64 7)
+  %div_i32_yes = icmp ne i32 %is_div_i32, 0
+  br i1 %div_i32_yes, label %return_div_i32, label %check_load_i32_kw
+
+check_load_i32_kw:
+  %is_load_i32_kw = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.load_i32, i64 8)
+  %load_i32_kw_yes = icmp ne i32 %is_load_i32_kw, 0
+  br i1 %load_i32_kw_yes, label %return_load_i32_kw, label %check_store_i32_kw
+
+check_store_i32_kw:
+  %is_store_i32_kw = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.store_i32, i64 9)
+  %store_i32_kw_yes = icmp ne i32 %is_store_i32_kw, 0
+  br i1 %store_i32_kw_yes, label %return_store_i32_kw, label %check_cast_i32_to_i64
+
+check_cast_i32_to_i64:
+  %is_cast_i32_to_i64 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.cast_i32_to_i64, i64 15)
+  %cast_i32_to_i64_yes = icmp ne i32 %is_cast_i32_to_i64, 0
+  br i1 %cast_i32_to_i64_yes, label %return_cast_i32_to_i64, label %return_ident
 
 return_fn:
   ret i32 6
@@ -677,6 +731,33 @@ return_bool_type:
 return_call_bool:
   ret i32 73
 
+return_ne_i32:
+  ret i32 74
+
+return_eq_i32:
+  ret i32 75
+
+return_ge_i32:
+  ret i32 76
+
+return_le_i32:
+  ret i32 77
+
+return_mul_i32:
+  ret i32 78
+
+return_div_i32:
+  ret i32 79
+
+return_load_i32_kw:
+  ret i32 80
+
+return_store_i32_kw:
+  ret i32 81
+
+return_cast_i32_to_i64:
+  ret i32 82
+
 return_ident:
   ret i32 3
 }
@@ -694,10 +775,14 @@ return_ident:
 define i64 @weave_lex_integer(ptr %source, ptr %tokens, i64 %start) {
 entry:
   %length = call i64 @weave_source_length(ptr %source)
+  %first_ch = call i32 @weave_source_byte_at(ptr %source, i64 %start)
+  %is_minus = icmp eq i32 %first_ch, 45
+  %signed_start = add i64 %start, 1
+  %scan_start = select i1 %is_minus, i64 %signed_start, i64 %start
   br label %loop
 
 loop:
-  %index = phi i64 [%start, %entry], [%next, %advance]
+  %index = phi i64 [%scan_start, %entry], [%next, %advance]
   %at_end = icmp uge i64 %index, %length
   br i1 %at_end, label %finish, label %read
 
@@ -953,7 +1038,22 @@ check_ident:
 check_digit:
   %digit = call i32 @weave_is_digit(i32 %ch)
   %is_digit = icmp ne i32 %digit, 0
-  br i1 %is_digit, label %lex_integer, label %check_string
+  br i1 %is_digit, label %lex_integer, label %check_minus
+
+check_minus:
+  %is_minus_ch = icmp eq i32 %ch, 45
+  br i1 %is_minus_ch, label %check_minus_digit, label %check_string
+
+check_minus_digit:
+  %next_index_for_minus = add i64 %index, 1
+  %minus_has_next = icmp ult i64 %next_index_for_minus, %length
+  br i1 %minus_has_next, label %read_minus_next, label %check_string
+
+read_minus_next:
+  %minus_next_ch = call i32 @weave_source_byte_at(ptr %source, i64 %next_index_for_minus)
+  %minus_next_digit_i32 = call i32 @weave_is_digit(i32 %minus_next_ch)
+  %minus_next_digit = icmp ne i32 %minus_next_digit_i32, 0
+  br i1 %minus_next_digit, label %lex_integer, label %check_string
 
 check_string:
   %is_quote = icmp eq i32 %ch, 34
