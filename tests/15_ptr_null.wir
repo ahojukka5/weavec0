@@ -1,0 +1,32 @@
+(core-module
+  (core-version 1)
+
+  (decls
+
+    (fn main
+      (params)
+      (returns i32)
+
+      (body
+        (if
+          (eq_ptr
+            (const_null)
+            (const_null))
+
+          (then
+            (if
+              (ne_ptr
+                (const_null)
+                (const_null))
+
+              (then
+                (return
+                  (const_i32 0)))
+
+              (else
+                (return
+                  (const_i32 42)))))
+
+          (else
+            (return
+              (const_i32 0))))))))

@@ -159,6 +159,9 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; TOKEN_FALSE        = 51
 ; TOKEN_AND_BOOL     = 52
 ; TOKEN_OR_BOOL      = 53
+; TOKEN_CONST_NULL   = 54
+; TOKEN_EQ_PTR       = 55
+; TOKEN_NE_PTR       = 56
 ;
 ; Add new token kinds only when a bootstrap test requires them.
 
@@ -181,6 +184,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; AST_NAME_EXPR       = 13
 ; AST_EXPR_STMT       = 14
 ; AST_CAST_EXPR       = 15
+; AST_NULL_LITERAL   = 16
 ;
 ; Keep this list small. Stage 0 exists to cross the bootstrap gap, not to model
 ; the complete future Weave language.
@@ -206,6 +210,8 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; BIN_NE_I64  = 15
 ; BIN_AND_BOOL = 16
 ; BIN_OR_BOOL  = 17
+; BIN_EQ_PTR   = 18
+; BIN_NE_PTR   = 19
 
 ; ----------------------------------------------------------------------------
 ; Exit/status conventions

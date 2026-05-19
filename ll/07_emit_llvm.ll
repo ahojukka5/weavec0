@@ -167,7 +167,10 @@ entry:
 @weave.emit.icmp_ne_i64 = private unnamed_addr constant [16 x i8] c" = icmp ne i64 \00"
 @weave.emit.and_bool = private unnamed_addr constant [11 x i8] c" = and i1 \00"
 @weave.emit.or_bool = private unnamed_addr constant [10 x i8] c" = or i1 \00"
+@weave.emit.icmp_eq_ptr = private unnamed_addr constant [16 x i8] c" = icmp eq ptr \00"
+@weave.emit.icmp_ne_ptr = private unnamed_addr constant [16 x i8] c" = icmp ne ptr \00"
 @weave.emit.comma_i32 = private unnamed_addr constant [3 x i8] c", \00"
+@weave.emit.null = private unnamed_addr constant [5 x i8] c"null\00"
 @weave.emit.br_i1 = private unnamed_addr constant [9 x i8] c"  br i1 \00"
 @weave.emit.comma_label_percent = private unnamed_addr constant [10 x i8] c", label %\00"
 @weave.emit.br_label = private unnamed_addr constant [13 x i8] c"  br label %\00"
@@ -304,6 +307,23 @@ entry:
   ret i64 %encoded
 }
 
+define i64 @weave_emit_null_value() {
+entry:
+  ret i64 -9223372036854775807
+}
+
+define i32 @weave_emitted_value_is_null(i64 %value) {
+entry:
+  %is_null = icmp eq i64 %value, -9223372036854775807
+  br i1 %is_null, label %yes, label %no
+
+yes:
+  ret i32 1
+
+no:
+  ret i32 0
+}
+
 define i32 @weave_emitted_value_is_temp(i64 %value) {
 entry:
   %is_temp = icmp sge i64 %value, 0
@@ -333,9 +353,19 @@ entry:
 
 define i32 @weave_emit_operand(ptr %ctx, i64 %value) {
 entry:
+  %is_null_i32 = call i32 @weave_emitted_value_is_null(i64 %value)
+  %is_null = icmp ne i32 %is_null_i32, 0
+  br i1 %is_null, label %null, label %check_temp
+
+check_temp:
   %is_temp_i32 = call i32 @weave_emitted_value_is_temp(i64 %value)
   %is_temp = icmp ne i32 %is_temp_i32, 0
   br i1 %is_temp, label %temp, label %immediate
+
+null:
+  %s_null = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.null)
+  %null_failed = icmp ne i32 %s_null, 0
+  br i1 %null_failed, label %fail, label %success
 
 temp:
   %s0 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.tmp_prefix)
@@ -504,7 +534,15 @@ check_and_bool:
 
 check_or_bool:
   %is_or_bool = icmp eq i32 %op, 17
-  br i1 %is_or_bool, label %or_bool, label %fail
+  br i1 %is_or_bool, label %or_bool, label %check_eq_ptr
+
+check_eq_ptr:
+  %is_eq_ptr = icmp eq i32 %op, 18
+  br i1 %is_eq_ptr, label %eq_ptr, label %check_ne_ptr
+
+check_ne_ptr:
+  %is_ne_ptr = icmp eq i32 %op, 19
+  br i1 %is_ne_ptr, label %ne_ptr, label %fail
 
 add_i64:
   %s_add_i64 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.add_i64)
@@ -533,6 +571,14 @@ and_bool:
 or_bool:
   %s_or_bool = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.or_bool)
   ret i32 %s_or_bool
+
+eq_ptr:
+  %s_eq_ptr = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.icmp_eq_ptr)
+  ret i32 %s_eq_ptr
+
+ne_ptr:
+  %s_ne_ptr = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.icmp_ne_ptr)
+  ret i32 %s_ne_ptr
 
 fail:
   ret i32 1
@@ -701,7 +747,11 @@ check_cast:
 
 check_name:
   %is_name = icmp eq i32 %kind, 13
-  br i1 %is_name, label %name, label %unsupported
+  br i1 %is_name, label %name, label %check_null
+
+check_null:
+  %is_null = icmp eq i32 %kind, 16
+  br i1 %is_null, label %null, label %unsupported
 
 integer:
   %value_wide = call i64 @weave_ast_a(ptr %ast, i64 %node_index)
@@ -724,6 +774,10 @@ cast:
 name:
   %name_value = call i64 @weave_emit_name_expr(ptr %ctx, i64 %node_index)
   ret i64 %name_value
+
+null:
+  %null_value = call i64 @weave_emit_null_value()
+  ret i64 %null_value
 
 unsupported:
   ret i64 -9223372036854775808

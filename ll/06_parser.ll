@@ -202,7 +202,15 @@ check_and_bool:
 
 check_or_bool:
   %is_or_bool = icmp eq i32 %kind, 53
-  br i1 %is_or_bool, label %or_bool, label %none
+  br i1 %is_or_bool, label %or_bool, label %check_eq_ptr
+
+check_eq_ptr:
+  %is_eq_ptr = icmp eq i32 %kind, 55
+  br i1 %is_eq_ptr, label %eq_ptr, label %check_ne_ptr
+
+check_ne_ptr:
+  %is_ne_ptr = icmp eq i32 %kind, 56
+  br i1 %is_ne_ptr, label %ne_ptr, label %none
 
 add:
   ret i32 1
@@ -230,6 +238,12 @@ and_bool:
 
 or_bool:
   ret i32 17
+
+eq_ptr:
+  ret i32 18
+
+ne_ptr:
+  ret i32 19
 
 none:
   ret i32 0
@@ -310,7 +324,11 @@ check_const_i32:
 
 check_const_bool:
   %is_const_bool = icmp eq i32 %head_kind, 49
-  br i1 %is_const_bool, label %parse_const_bool, label %check_const_i64
+  br i1 %is_const_bool, label %parse_const_bool, label %check_const_null
+
+check_const_null:
+  %is_const_null = icmp eq i32 %head_kind, 54
+  br i1 %is_const_null, label %parse_const_null, label %check_const_i64
 
 check_const_i64:
   %is_const_i64 = icmp eq i32 %head_kind, 38
@@ -370,7 +388,15 @@ check_and_bool:
 
 check_or_bool:
   %is_or_bool = icmp eq i32 %head_kind, 53
-  br i1 %is_or_bool, label %parse_or_bool, label %check_print
+  br i1 %is_or_bool, label %parse_or_bool, label %check_eq_ptr
+
+check_eq_ptr:
+  %is_eq_ptr = icmp eq i32 %head_kind, 55
+  br i1 %is_eq_ptr, label %parse_eq_ptr, label %check_ne_ptr
+
+check_ne_ptr:
+  %is_ne_ptr = icmp eq i32 %head_kind, 56
+  br i1 %is_ne_ptr, label %parse_ne_ptr, label %check_print
 
 check_print:
   %is_print = icmp eq i32 %head_kind, 45
@@ -422,6 +448,24 @@ capture_bool_false:
 make_bool_false:
   %false_node = call i64 @weave_ast_make_integer_literal(ptr %ast, i32 0)
   ret i64 %false_node
+
+parse_const_null:
+  call void @weave_parser_advance(ptr %parser)
+  %null_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %null_close_failed = icmp ne i32 %null_close_status, 0
+  br i1 %null_close_failed, label %fail, label %make_null
+
+make_null:
+  %null_node = call i64 @weave_ast_push(
+    ptr %ast,
+    i32 16,
+    i64 0,
+    i64 0,
+    i64 0,
+    i64 0,
+    i64 0
+  )
+  ret i64 %null_node
 
 parse_const_i64:
   call void @weave_parser_advance(ptr %parser)
@@ -685,6 +729,12 @@ parse_and_bool:
   br label %parse_binary
 
 parse_or_bool:
+  br label %parse_binary
+
+parse_eq_ptr:
+  br label %parse_binary
+
+parse_ne_ptr:
   br label %parse_binary
 
 parse_print:
