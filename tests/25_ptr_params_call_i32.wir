@@ -1,0 +1,34 @@
+(core-module
+  (core-version 1)
+
+  (decls
+
+    (fn same_ptr
+      (params
+        (a ptr)
+        (b ptr))
+      (returns i32)
+
+      (body
+        (if
+          (eq_ptr
+            (param_get a)
+            (param_get b))
+
+          (then
+            (return
+              (const_i32 42)))
+
+          (else
+            (return
+              (const_i32 0))))))
+
+    (fn main
+      (params)
+      (returns i32)
+
+      (body
+        (return
+          (call_i32 same_ptr
+            (const_null)
+            (const_null)))))))

@@ -2011,9 +2011,17 @@ capture_param1_name:
   %param1_start_val = call i64 @weave_parser_current_start(ptr %parser)
   %param1_len_val = call i64 @weave_parser_current_length(ptr %parser)
   call void @weave_parser_advance(ptr %parser)
-  %param1_type_status = call i32 @weave_parser_expect(ptr %parser, i32 32)
-  %param1_type_failed = icmp ne i32 %param1_type_status, 0
-  br i1 %param1_type_failed, label %fail, label %param1_close
+  %param1_type_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %param1_type_i32 = icmp eq i32 %param1_type_kind, 32
+  %param1_type_i64 = icmp eq i32 %param1_type_kind, 39
+  %param1_type_ptr = icmp eq i32 %param1_type_kind, 58
+  %param1_type_int = or i1 %param1_type_i32, %param1_type_i64
+  %param1_type_ok = or i1 %param1_type_int, %param1_type_ptr
+  br i1 %param1_type_ok, label %consume_param1_type, label %fail
+
+consume_param1_type:
+  call void @weave_parser_advance(ptr %parser)
+  br label %param1_close
 
 param1_close:
   %param1_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
@@ -2039,9 +2047,17 @@ capture_param2_name:
   %param2_start_val = call i64 @weave_parser_current_start(ptr %parser)
   %param2_len_val = call i64 @weave_parser_current_length(ptr %parser)
   call void @weave_parser_advance(ptr %parser)
-  %param2_type_status = call i32 @weave_parser_expect(ptr %parser, i32 32)
-  %param2_type_failed = icmp ne i32 %param2_type_status, 0
-  br i1 %param2_type_failed, label %fail, label %param2_close
+  %param2_type_kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %param2_type_i32 = icmp eq i32 %param2_type_kind, 32
+  %param2_type_i64 = icmp eq i32 %param2_type_kind, 39
+  %param2_type_ptr = icmp eq i32 %param2_type_kind, 58
+  %param2_type_int = or i1 %param2_type_i32, %param2_type_i64
+  %param2_type_ok = or i1 %param2_type_int, %param2_type_ptr
+  br i1 %param2_type_ok, label %consume_param2_type, label %fail
+
+consume_param2_type:
+  call void @weave_parser_advance(ptr %parser)
+  br label %param2_close
 
 param2_close:
   %param2_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
