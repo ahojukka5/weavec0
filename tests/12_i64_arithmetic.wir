@@ -1,31 +1,34 @@
 (core-module
   (core-version 1)
   (decls
-    (fn
-      main
+    (fn main
       (params)
       (returns i32)
       (do
-        (let
-          a
-          i64
-          (const_i64 20))
-        (let
-          b
-          i64
-          (const_i64 2))
-        (let
-          c
-          i64
+        (let a i64
+          (const_i64 20)
+        ) ;; let
+        (let b i64
+          (const_i64 2)
+        ) ;; let
+        (let c i64
           (mul_i64
             (local_get b)
-            (const_i64 11)))
-        (let
-          d
-          i64
+            (const_i64 11)
+          ) ;; mul_i64
+        ) ;; let
+        (let d i64
           (add_i64
             (local_get a)
-            (local_get c)))
+            (local_get c)
+          ) ;; add_i64
+        ) ;; let
         (return
           (cast_i64_to_i32
-            (local_get d)))))))
+            (local_get d)
+          ) ;; cast_i64_to_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

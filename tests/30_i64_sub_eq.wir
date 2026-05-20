@@ -1,8 +1,7 @@
 (core-module
   (core-version 1)
   (decls
-    (fn
-      main
+    (fn main
       (params)
       (returns i32)
       (do
@@ -11,13 +10,27 @@
             (eq_i64
               (sub_i64
                 (const_i64 50)
-                (const_i64 8))
-              (const_i64 42)))
+                (const_i64 8)
+              ) ;; sub_i64
+              (const_i64 42)
+            ) ;; eq_i64
+          ) ;; condition
           (then
             (do
               (return
-                (const_i32 42))))
+                (const_i32 42)
+              ) ;; return
+            ) ;; do
+          ) ;; then
           (else
             (do
               (return
-                (const_i32 0)))))))))
+                (const_i32 0)
+              ) ;; return
+            ) ;; do
+          ) ;; else
+        ) ;; if
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

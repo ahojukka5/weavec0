@@ -1,17 +1,22 @@
 (core-module
   (core-version 1)
   (decls
-    (fn
-      noop
+    (fn noop
       (params)
       (returns void)
       (do
-        (return_void)))
-    (fn
-      main
+        (return_void)
+      ) ;; do
+    ) ;; fn
+    (fn main
       (params)
       (returns i32)
       (do
         (call_void noop)
         (return
-          (const_i32 42))))))
+          (const_i32 42)
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

@@ -1,18 +1,23 @@
 (core-module
   (core-version 1)
   (decls
-    (extern
-      puts
+    (extern puts
       (params
-        (s ptr))
-      (returns i32))
-    (fn
-      main
+        (s ptr)
+      ) ;; params
+      (returns i32)
+    ) ;; extern
+    (fn main
       (params)
       (returns i32)
       (do
-        (call_i32
-          puts
-          (const_string_ptr "hello from const_string_ptr"))
+        (call_i32 puts
+          (const_string_ptr "hello from const_string_ptr")
+        ) ;; call_i32
         (return
-          (const_i32 42))))))
+          (const_i32 42)
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

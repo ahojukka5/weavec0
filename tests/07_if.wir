@@ -1,8 +1,7 @@
 (core-module
   (core-version 1)
   (decls
-    (fn
-      main
+    (fn main
       (params)
       (returns i32)
       (do
@@ -10,12 +9,25 @@
           (condition
             (lt_i32
               (const_i32 1)
-              (const_i32 2)))
+              (const_i32 2)
+            ) ;; lt_i32
+          ) ;; condition
           (then
             (do
               (return
-                (const_i32 42))))
+                (const_i32 42)
+              ) ;; return
+            ) ;; do
+          ) ;; then
           (else
             (do
               (return
-                (const_i32 0)))))))))
+                (const_i32 0)
+              ) ;; return
+            ) ;; do
+          ) ;; else
+        ) ;; if
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

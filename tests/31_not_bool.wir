@@ -1,20 +1,32 @@
 (core-module
   (core-version 1)
   (decls
-    (fn
-      main
+    (fn main
       (params)
       (returns i32)
       (do
         (if
           (condition
             (not_bool
-              (const_bool false)))
+              (const_bool false)
+            ) ;; not_bool
+          ) ;; condition
           (then
             (do
               (return
-                (const_i32 42))))
+                (const_i32 42)
+              ) ;; return
+            ) ;; do
+          ) ;; then
           (else
             (do
               (return
-                (const_i32 0)))))))))
+                (const_i32 0)
+              ) ;; return
+            ) ;; do
+          ) ;; else
+        ) ;; if
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

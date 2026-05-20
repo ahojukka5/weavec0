@@ -1,8 +1,7 @@
 (core-module
   (core-version 1)
   (decls
-    (fn
-      main
+    (fn main
       (params)
       (returns i32)
       (do
@@ -10,23 +9,44 @@
           (condition
             (eq_ptr
               (const_null)
-              (const_null)))
+              (const_null)
+            ) ;; eq_ptr
+          ) ;; condition
           (then
             (do
               (if
                 (condition
                   (ne_ptr
                     (const_null)
-                    (const_null)))
+                    (const_null)
+                  ) ;; ne_ptr
+                ) ;; condition
                 (then
                   (do
                     (return
-                      (const_i32 0))))
+                      (const_i32 0)
+                    ) ;; return
+                  ) ;; do
+                ) ;; then
                 (else
                   (do
                     (return
-                      (const_i32 42)))))))
+                      (const_i32 42)
+                    ) ;; return
+                  ) ;; do
+                ) ;; else
+              ) ;; if
+            ) ;; do
+          ) ;; then
           (else
             (do
               (return
-                (const_i32 0)))))))))
+                (const_i32 0)
+              ) ;; return
+            ) ;; do
+          ) ;; else
+        ) ;; if
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module
