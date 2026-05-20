@@ -202,7 +202,15 @@ check_ne_i64:
 
 check_eq_i64:
   %is_eq_i64 = icmp eq i32 %kind, 85
-  br i1 %is_eq_i64, label %eq_i64, label %check_and_bool
+  br i1 %is_eq_i64, label %eq_i64, label %check_gt_i64
+
+check_gt_i64:
+  %is_gt_i64 = icmp eq i32 %kind, 91
+  br i1 %is_gt_i64, label %gt_i64, label %check_ge_i64
+
+check_ge_i64:
+  %is_ge_i64 = icmp eq i32 %kind, 92
+  br i1 %is_ge_i64, label %ge_i64, label %check_and_bool
 
 check_and_bool:
   %is_and_bool = icmp eq i32 %kind, 52
@@ -238,7 +246,15 @@ check_ge_i32:
 
 check_le_i32:
   %is_le_i32 = icmp eq i32 %kind, 77
-  br i1 %is_le_i32, label %le_i32, label %check_mul_i32
+  br i1 %is_le_i32, label %le_i32, label %check_gt_i32
+
+check_gt_i32:
+  %is_gt_i32 = icmp eq i32 %kind, 90
+  br i1 %is_gt_i32, label %gt_i32, label %check_sub_i32
+
+check_sub_i32:
+  %is_sub_i32 = icmp eq i32 %kind, 89
+  br i1 %is_sub_i32, label %sub_i32, label %check_mul_i32
 
 check_mul_i32:
   %is_mul_i32 = icmp eq i32 %kind, 78
@@ -275,6 +291,12 @@ ne_i64:
 eq_i64:
   ret i32 28
 
+gt_i64:
+  ret i32 31
+
+ge_i64:
+  ret i32 32
+
 and_bool:
   ret i32 16
 
@@ -301,6 +323,12 @@ ge_i32:
 
 le_i32:
   ret i32 24
+
+gt_i32:
+  ret i32 30
+
+sub_i32:
+  ret i32 29
 
 mul_i32:
   ret i32 25

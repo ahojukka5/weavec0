@@ -163,7 +163,6 @@ run_case() {
   local exe="$BUILD_DIR/${name}.out"
 
   [[ -f "$src" ]] || fail "missing test source: $src"
-  [[ -f "$expected_ll" ]] || fail "missing expected LLVM IR: $expected_ll"
 
   log "compile $name"
   "$WEAVEC0" "$src" "$ll"
@@ -187,6 +186,7 @@ run_case() {
   [[ -s "$ll" ]] || fail "compiler produced empty LLVM IR for $name"
 
   log "compare $name"
+  [[ -f "$expected_ll" ]] || fail "missing expected LLVM IR: $expected_ll"
   if ! diff -u "$expected_ll" "$ll"; then
     fail "$name: generated LLVM IR differs from expected fixture"
   fi
@@ -233,6 +233,12 @@ main() {
   run_case "32_codegen_join_and_i64_arg" 42
   run_case "33_store_i8_temp" 42
   run_case "34_ge_i32" 42
+  run_case "35_sub_i32" 42
+  run_case "36_mul_i32" 42
+  run_case "37_div_i32" 42
+  run_case "38_i32_comparisons_full" 42
+  run_case "39_i64_ge_gt" 42
+  run_case "40_call_bool_direct" 42
 
   log "all bootstrap tests passed"
 }

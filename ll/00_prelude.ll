@@ -194,6 +194,10 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; TOKEN_NOT_BOOL     = 86
 ; TOKEN_DO           = 87
 ; TOKEN_CONDITION    = 88
+; TOKEN_SUB_I32      = 89
+; TOKEN_GT_I32       = 90
+; TOKEN_GT_I64       = 91
+; TOKEN_GE_I64       = 92
 ;
 ; Add new token kinds only when a bootstrap test requires them.
 
@@ -272,6 +276,10 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; BIN_DIV_I32  = 26
 ; BIN_SUB_I64  = 27
 ; BIN_EQ_I64   = 28
+; BIN_SUB_I32  = 29
+; BIN_GT_I32   = 30
+; BIN_GT_I64   = 31
+; BIN_GE_I64   = 32
 
 ; ----------------------------------------------------------------------------
 ; Exit/status conventions

@@ -1,0 +1,17 @@
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (mul_i32
+            (const_i32 6)
+            (const_i32 7)
+          ) ;; mul_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

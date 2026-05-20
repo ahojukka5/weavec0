@@ -213,11 +213,13 @@ entry:
 @weave.emit.label_prefix = private unnamed_addr constant [6 x i8] c"label\00"
 @weave.emit.gep_i8 = private unnamed_addr constant [26 x i8] c" = getelementptr i8, ptr \00"
 @weave.emit.add = private unnamed_addr constant [12 x i8] c" = add i32 \00"
+@weave.emit.sub_i32 = private unnamed_addr constant [12 x i8] c" = sub i32 \00"
 @weave.emit.mod_i32 = private unnamed_addr constant [13 x i8] c" = srem i32 \00"
 @weave.emit.mul_i32 = private unnamed_addr constant [12 x i8] c" = mul i32 \00"
 @weave.emit.div_i32 = private unnamed_addr constant [13 x i8] c" = sdiv i32 \00"
 @weave.emit.icmp_eq_i32 = private unnamed_addr constant [16 x i8] c" = icmp eq i32 \00"
 @weave.emit.icmp_ne_i32 = private unnamed_addr constant [16 x i8] c" = icmp ne i32 \00"
+@weave.emit.icmp_gt_i32 = private unnamed_addr constant [17 x i8] c" = icmp sgt i32 \00"
 @weave.emit.icmp_ge_i32 = private unnamed_addr constant [17 x i8] c" = icmp sge i32 \00"
 @weave.emit.icmp_le_i32 = private unnamed_addr constant [17 x i8] c" = icmp sle i32 \00"
 @weave.emit.add_i64 = private unnamed_addr constant [12 x i8] c" = add i64 \00"
@@ -227,6 +229,8 @@ entry:
 @weave.emit.icmp_eq_i64 = private unnamed_addr constant [16 x i8] c" = icmp eq i64 \00"
 @weave.emit.icmp_lt_i64 = private unnamed_addr constant [17 x i8] c" = icmp slt i64 \00"
 @weave.emit.icmp_le_i64 = private unnamed_addr constant [17 x i8] c" = icmp sle i64 \00"
+@weave.emit.icmp_gt_i64 = private unnamed_addr constant [17 x i8] c" = icmp sgt i64 \00"
+@weave.emit.icmp_ge_i64 = private unnamed_addr constant [17 x i8] c" = icmp sge i64 \00"
 @weave.emit.icmp_ne_i64 = private unnamed_addr constant [16 x i8] c" = icmp ne i64 \00"
 @weave.emit.and_bool = private unnamed_addr constant [11 x i8] c" = and i1 \00"
 @weave.emit.or_bool = private unnamed_addr constant [10 x i8] c" = or i1 \00"
@@ -679,26 +683,32 @@ binary_check_bool:
   %is_eq_i32 = icmp eq i32 %op, 22
   %is_ge_i32 = icmp eq i32 %op, 23
   %is_le_i32 = icmp eq i32 %op, 24
+  %is_gt_i32 = icmp eq i32 %op, 30
   %is_lt_i64 = icmp eq i32 %op, 13
   %is_le_i64 = icmp eq i32 %op, 14
   %is_ne_i64 = icmp eq i32 %op, 15
   %is_eq_i64 = icmp eq i32 %op, 28
+  %is_gt_i64 = icmp eq i32 %op, 31
+  %is_ge_i64 = icmp eq i32 %op, 32
   %is_and_bool = icmp eq i32 %op, 16
   %is_or_bool = icmp eq i32 %op, 17
   %is_eq_ptr = icmp eq i32 %op, 18
   %is_ne_ptr = icmp eq i32 %op, 19
   %b01 = or i1 %is_lt_i32, %is_ne_i32
   %b23 = or i1 %is_eq_i32, %is_ge_i32
-  %b45 = or i1 %is_le_i32, %is_lt_i64
-  %b67 = or i1 %is_le_i64, %is_ne_i64
-  %b89 = or i1 %is_eq_i64, %is_and_bool
-  %b1011 = or i1 %is_or_bool, %is_eq_ptr
+  %b45 = or i1 %is_le_i32, %is_gt_i32
+  %b67 = or i1 %is_lt_i64, %is_le_i64
+  %b89 = or i1 %is_ne_i64, %is_eq_i64
+  %b1011 = or i1 %is_gt_i64, %is_ge_i64
+  %b1213 = or i1 %is_and_bool, %is_or_bool
   %b0123 = or i1 %b01, %b23
   %b4567 = or i1 %b45, %b67
   %b891011 = or i1 %b89, %b1011
+  %b1213_eq_ptr = or i1 %b1213, %is_eq_ptr
   %b01234567 = or i1 %b0123, %b4567
   %b_without_ne_ptr = or i1 %b01234567, %b891011
-  %bool_binary = or i1 %b_without_ne_ptr, %is_ne_ptr
+  %b_without_ne_ptr_2 = or i1 %b_without_ne_ptr, %b1213_eq_ptr
+  %bool_binary = or i1 %b_without_ne_ptr_2, %is_ne_ptr
   br i1 %bool_binary, label %bool_type, label %i32_type
 
 ptr_type:
@@ -1033,7 +1043,15 @@ check_mul_i32:
 
 check_div_i32:
   %is_div_i32 = icmp eq i32 %op, 26
-  br i1 %is_div_i32, label %div_i32, label %check_sub_i64
+  br i1 %is_div_i32, label %div_i32, label %check_sub_i32
+
+check_sub_i32:
+  %is_sub_i32 = icmp eq i32 %op, 29
+  br i1 %is_sub_i32, label %sub_i32, label %check_gt_i32
+
+check_gt_i32:
+  %is_gt_i32 = icmp eq i32 %op, 30
+  br i1 %is_gt_i32, label %gt_i32, label %check_sub_i64
 
 check_sub_i64:
   %is_sub_i64 = icmp eq i32 %op, 27
@@ -1041,7 +1059,15 @@ check_sub_i64:
 
 check_eq_i64:
   %is_eq_i64 = icmp eq i32 %op, 28
-  br i1 %is_eq_i64, label %eq_i64, label %fail
+  br i1 %is_eq_i64, label %eq_i64, label %check_gt_i64
+
+check_gt_i64:
+  %is_gt_i64 = icmp eq i32 %op, 31
+  br i1 %is_gt_i64, label %gt_i64, label %check_ge_i64
+
+check_ge_i64:
+  %is_ge_i64 = icmp eq i32 %op, 32
+  br i1 %is_ge_i64, label %ge_i64, label %fail
 
 add_i64:
   %s_add_i64 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.add_i64)
@@ -1070,6 +1096,14 @@ ne_i64:
 eq_i64:
   %s_eq_i64 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.icmp_eq_i64)
   ret i32 %s_eq_i64
+
+gt_i64:
+  %s_gt_i64 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.icmp_gt_i64)
+  ret i32 %s_gt_i64
+
+ge_i64:
+  %s_ge_i64 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.icmp_ge_i64)
+  ret i32 %s_ge_i64
 
 and_bool:
   %s_and_bool = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.and_bool)
@@ -1106,6 +1140,14 @@ ge_i32:
 le_i32:
   %s_le_i32 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.icmp_le_i32)
   ret i32 %s_le_i32
+
+gt_i32:
+  %s_gt_i32 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.icmp_gt_i32)
+  ret i32 %s_gt_i32
+
+sub_i32:
+  %s_sub_i32 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.sub_i32)
+  ret i32 %s_sub_i32
 
 mul_i32:
   %s_mul_i32 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.mul_i32)
