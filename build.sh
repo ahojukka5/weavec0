@@ -224,6 +224,7 @@ main() {
   run_case "31_not_bool" 42
   run_case "32_codegen_join_and_i64_arg" 42
   run_case "33_store_i8_temp" 42
+  run_case "34_ge_i32" 42
 
   log "all bootstrap tests passed"
 }

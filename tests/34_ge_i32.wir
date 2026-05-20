@@ -1,0 +1,22 @@
+(core-module
+  (core-version 1)
+
+  (decls
+
+    (fn main
+      (params)
+      (returns i32)
+
+      (body
+        (if
+          (ge_i32
+            (const_i32 42)
+            (const_i32 42))
+
+          (then
+            (return
+              (const_i32 42)))
+
+          (else
+            (return
+              (const_i32 0))))))))
