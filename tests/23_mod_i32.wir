@@ -1,13 +1,11 @@
 (core-module
   (core-version 1)
-
   (decls
-
-    (fn main
+    (fn
+      main
       (params)
       (returns i32)
-
-      (body
+      (do
         (return
           (mod_i32
             (const_i32 42)

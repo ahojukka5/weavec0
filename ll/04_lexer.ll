@@ -175,7 +175,8 @@ entry:
 @weave.kw.decls = private unnamed_addr constant [6 x i8] c"decls\00"
 @weave.kw.params = private unnamed_addr constant [7 x i8] c"params\00"
 @weave.kw.returns = private unnamed_addr constant [8 x i8] c"returns\00"
-@weave.kw.body = private unnamed_addr constant [5 x i8] c"body\00"
+@weave.kw.do = private unnamed_addr constant [3 x i8] c"do\00"
+@weave.kw.condition = private unnamed_addr constant [10 x i8] c"condition\00"
 @weave.kw.const_i32 = private unnamed_addr constant [10 x i8] c"const_i32\00"
 @weave.kw.i32 = private unnamed_addr constant [4 x i8] c"i32\00"
 @weave.kw.param_get = private unnamed_addr constant [10 x i8] c"param_get\00"
@@ -297,12 +298,17 @@ check_params:
 check_returns:
   %is_returns = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.returns, i64 7)
   %returns_yes = icmp ne i32 %is_returns, 0
-  br i1 %returns_yes, label %return_returns, label %check_body
+  br i1 %returns_yes, label %return_returns, label %check_do
 
-check_body:
-  %is_body = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.body, i64 4)
-  %body_yes = icmp ne i32 %is_body, 0
-  br i1 %body_yes, label %return_body, label %check_const_i32
+check_do:
+  %is_do = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.do, i64 2)
+  %do_yes = icmp ne i32 %is_do, 0
+  br i1 %do_yes, label %return_do, label %check_condition
+
+check_condition:
+  %is_condition = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.condition, i64 9)
+  %condition_yes = icmp ne i32 %is_condition, 0
+  br i1 %condition_yes, label %return_condition, label %check_const_i32
 
 check_const_i32:
   %is_const_i32 = call i32 @weave_bytes_equal(ptr %text, i64 %length, ptr @weave.kw.const_i32, i64 9)
@@ -623,9 +629,6 @@ return_params:
 return_returns:
   ret i32 29
 
-return_body:
-  ret i32 30
-
 return_const_i32:
   ret i32 31
 
@@ -793,6 +796,12 @@ return_eq_i64:
 
 return_not_bool:
   ret i32 86
+
+return_do:
+  ret i32 87
+
+return_condition:
+  ret i32 88
 
 return_ident:
   ret i32 3

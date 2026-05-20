@@ -1,26 +1,24 @@
 (core-module
   (core-version 1)
-
   (decls
-
-    (fn add
+    (fn
+      add
       (params
         (a i32)
         (b i32))
       (returns i32)
-
-      (body
+      (do
         (return
           (add_i32
             (param_get a)
             (param_get b)))))
-
-    (fn main
+    (fn
+      main
       (params)
       (returns i32)
-
-      (body
+      (do
         (return
-          (call_i32 add
+          (call_i32
+            add
             (const_i32 20)
             (const_i32 22)))))))

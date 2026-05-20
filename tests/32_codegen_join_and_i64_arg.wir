@@ -1,42 +1,42 @@
 (core-module
   (core-version 1)
-
   (decls
-
-    (extern malloc
+    (extern
+      malloc
       (params
         (size i64))
       (returns ptr))
-
-    (extern free
+    (extern
+      free
       (params
         (p ptr))
       (returns void))
-
-    (fn main
+    (fn
+      main
       (params)
       (returns i32)
-
-      (body
-        (let p ptr
-          (call_ptr malloc
+      (do
+        (let
+          p
+          ptr
+          (call_ptr
+            malloc
             (mul_i64
               (const_i64 2)
               (const_i64 4))))
-
         (if
-          (eq_ptr
-            (local_get p)
-            (const_null))
-
+          (condition
+            (eq_ptr
+              (local_get p)
+              (const_null)))
           (then
-            (return
-              (const_i32 0)))
-
+            (do
+              (return
+                (const_i32 0))))
           (else
-            (block
-              (call_void free
+            (do
+              (call_void
+                free
                 (local_get p)))))
-
         (return
           (const_i32 42))))))

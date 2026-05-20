@@ -1747,6 +1747,54 @@ fail:
 }
 
 ; ----------------------------------------------------------------------------
+; weave_parse_condition_slot
+;
+; Parse the canonical structural slot:
+;   (condition expr)
+; ----------------------------------------------------------------------------
+
+define i64 @weave_parse_condition_slot(ptr %parser, ptr %ast) {
+entry:
+  %kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %is_lparen = icmp eq i32 %kind, 1
+  br i1 %is_lparen, label %check_head, label %fail
+
+check_head:
+  %tokens = call ptr @weave_parser_tokens(ptr %parser)
+  %index = call i64 @weave_parser_index(ptr %parser)
+  %head_index = add i64 %index, 1
+  %head_kind = call i32 @weave_token_kind(ptr %tokens, i64 %head_index)
+  %is_condition = icmp eq i32 %head_kind, 88
+  br i1 %is_condition, label %canonical_open, label %fail
+
+canonical_open:
+  %open_status = call i32 @weave_parser_expect(ptr %parser, i32 1)
+  %open_failed = icmp ne i32 %open_status, 0
+  br i1 %open_failed, label %fail, label %canonical_head
+
+canonical_head:
+  %head_status = call i32 @weave_parser_expect(ptr %parser, i32 88)
+  %head_failed = icmp ne i32 %head_status, 0
+  br i1 %head_failed, label %fail, label %canonical_expr
+
+canonical_expr:
+  %expr = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %expr_failed = icmp slt i64 %expr, 0
+  br i1 %expr_failed, label %fail, label %canonical_close
+
+canonical_close:
+  %close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  %close_failed = icmp ne i32 %close_status, 0
+  br i1 %close_failed, label %fail, label %done
+
+done:
+  ret i64 %expr
+
+fail:
+  ret i64 -1
+}
+
+; ----------------------------------------------------------------------------
 ; weave_parse_if_stmt
 ;
 ; Parse:
@@ -1767,7 +1815,7 @@ expect_if:
   br i1 %if_failed, label %fail, label %condition
 
 condition:
-  %cond = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %cond = call i64 @weave_parse_condition_slot(ptr %parser, ptr %ast)
   %cond_failed = icmp slt i64 %cond, 0
   br i1 %cond_failed, label %fail, label %then_branch
 
@@ -1858,10 +1906,9 @@ fail:
 ; weave_parse_while_stmt
 ;
 ; Parse:
-;   (while cond (body stmt))
+;   (while (condition cond) (do stmt ...))
 ;
-; Body is one statement in Stage 0. Use a block when multiple statements are
-; needed.
+; The loop body is the canonical do-sequence statement.
 ; ----------------------------------------------------------------------------
 
 define i64 @weave_parse_while_stmt(ptr %parser, ptr %ast) {
@@ -1876,42 +1923,16 @@ expect_while:
   br i1 %while_failed, label %fail, label %condition
 
 condition:
-  %cond = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
+  %cond = call i64 @weave_parse_condition_slot(ptr %parser, ptr %ast)
   %cond_failed = icmp slt i64 %cond, 0
-  br i1 %cond_failed, label %fail, label %body_branch
-
-body_branch:
-  %body_kind = call i32 @weave_parser_current_kind(ptr %parser)
-  %body_is_lparen = icmp eq i32 %body_kind, 1
-  br i1 %body_is_lparen, label %body_wrapper, label %body_direct
-
-body_wrapper:
-  %body_open_status = call i32 @weave_parser_expect(ptr %parser, i32 1)
-  %body_open_failed = icmp ne i32 %body_open_status, 0
-  br i1 %body_open_failed, label %fail, label %body_head
-
-body_head:
-  %body_head_status = call i32 @weave_parser_expect(ptr %parser, i32 30)
-  %body_head_failed = icmp ne i32 %body_head_status, 0
-  br i1 %body_head_failed, label %fail, label %body_stmt_wrapped
-
-body_stmt_wrapped:
-  %body_node_wrapped = call i64 @weave_parse_stmt(ptr %parser, ptr %ast)
-  %body_wrapped_failed = icmp slt i64 %body_node_wrapped, 0
-  br i1 %body_wrapped_failed, label %fail, label %body_close
-
-body_close:
-  %body_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
-  %body_close_failed = icmp ne i32 %body_close_status, 0
-  br i1 %body_close_failed, label %fail, label %body_merge
+  br i1 %cond_failed, label %fail, label %body_direct
 
 body_direct:
-  %body_node_direct = call i64 @weave_parse_stmt(ptr %parser, ptr %ast)
-  %body_direct_failed = icmp slt i64 %body_node_direct, 0
-  br i1 %body_direct_failed, label %fail, label %body_merge
+  %body_node = call i64 @weave_parse_stmt(ptr %parser, ptr %ast)
+  %body_failed = icmp slt i64 %body_node, 0
+  br i1 %body_failed, label %fail, label %close
 
-body_merge:
-  %body_node = phi i64 [%body_node_wrapped, %body_close], [%body_node_direct, %body_direct]
+close:
   %close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
   %close_failed = icmp ne i32 %close_status, 0
   br i1 %close_failed, label %fail, label %make_node
@@ -1991,7 +2012,11 @@ check_store_i8:
 
 check_block:
   %is_block = icmp eq i32 %head_kind, 24
-  br i1 %is_block, label %block_stmt, label %expr_stmt
+  br i1 %is_block, label %block_stmt, label %check_do
+
+check_do:
+  %is_do = icmp eq i32 %head_kind, 87
+  br i1 %is_do, label %block_stmt, label %expr_stmt
 
 return_stmt:
   %return_node = call i64 @weave_parse_return_stmt(ptr %parser, ptr %ast)
@@ -2062,7 +2087,7 @@ fail:
 ; weave_parse_block
 ;
 ; Parse:
-;   (block stmt stmt ...)
+;   (do stmt stmt ...)
 ;
 ; The compact AST representation stores a reversed statement-list chain.
 ; Nested expressions and statements are also appended during parse, so numeric
@@ -2087,7 +2112,11 @@ entry:
 read_head:
   %head_kind = call i32 @weave_parser_current_kind(ptr %parser)
   %is_block = icmp eq i32 %head_kind, 24
-  br i1 %is_block, label %consume_head, label %fail
+  br i1 %is_block, label %consume_head, label %check_do_head
+
+check_do_head:
+  %is_do = icmp eq i32 %head_kind, 87
+  br i1 %is_do, label %consume_head, label %fail
 
 consume_head:
   call void @weave_parser_advance(ptr %parser)
@@ -2124,78 +2153,6 @@ after_stmt:
   br label %loop
 
 finish:
-  call void @weave_parser_advance(ptr %parser)
-  %node = call i64 @weave_ast_push(
-    ptr %ast,
-    i32 3,
-    i64 %list_head,
-    i64 -1,
-    i64 %count,
-    i64 0,
-    i64 0
-  )
-  ret i64 %node
-
-fail:
-  ret i64 -1
-}
-
-; ----------------------------------------------------------------------------
-; weave_parse_wir_body
-;
-; Parse:
-;   (body stmt stmt ...)
-;
-; WIR uses an explicit body wrapper. Internally Stage 0 still uses AST_BLOCK so
-; the existing LLVM emitter can stay focused on one compact AST shape.
-; ----------------------------------------------------------------------------
-
-define i64 @weave_parse_wir_body(ptr %parser, ptr %ast) {
-entry:
-  %open_status = call i32 @weave_parser_expect(ptr %parser, i32 1)
-  %open_failed = icmp ne i32 %open_status, 0
-  br i1 %open_failed, label %fail, label %expect_body
-
-expect_body:
-  %body_status = call i32 @weave_parser_expect(ptr %parser, i32 30)
-  %body_failed = icmp ne i32 %body_status, 0
-  br i1 %body_failed, label %fail, label %loop
-
-loop:
-  %list_head = phi i64 [-1, %expect_body], [%list_node, %after_stmt]
-  %count = phi i64 [0, %expect_body], [%count_next, %after_stmt]
-
-  %kind = call i32 @weave_parser_current_kind(ptr %parser)
-  %is_rparen = icmp eq i32 %kind, 2
-  br i1 %is_rparen, label %finish, label %parse_stmt
-
-parse_stmt:
-  %stmt = call i64 @weave_parse_stmt(ptr %parser, ptr %ast)
-  %stmt_failed = icmp slt i64 %stmt, 0
-  br i1 %stmt_failed, label %fail, label %make_list_node
-
-make_list_node:
-  %list_node = call i64 @weave_ast_push(
-    ptr %ast,
-    i32 20,
-    i64 %stmt,
-    i64 %list_head,
-    i64 0,
-    i64 0,
-    i64 0
-  )
-  %list_failed = icmp slt i64 %list_node, 0
-  br i1 %list_failed, label %fail, label %after_stmt
-
-after_stmt:
-  %count_next = add i64 %count, 1
-  br label %loop
-
-finish:
-  %empty = icmp eq i64 %count, 0
-  br i1 %empty, label %fail, label %consume_close
-
-consume_close:
   call void @weave_parser_advance(ptr %parser)
   %node = call i64 @weave_ast_push(
     ptr %ast,
@@ -2306,7 +2263,7 @@ fail:
 ;     (params (x i32))
 ;     (params (x i32) (y i32))
 ;     (returns i32)
-;     (body ...))
+;     (do ...))
 ; ----------------------------------------------------------------------------
 
 define i64 @weave_parse_wir_function(ptr %parser, ptr %ast) {
@@ -2366,7 +2323,7 @@ returns_close:
   br i1 %returns_close_failed, label %fail, label %parse_body
 
 parse_body:
-  %body = call i64 @weave_parse_wir_body(ptr %parser, ptr %ast)
+  %body = call i64 @weave_parse_stmt(ptr %parser, ptr %ast)
   %body_failed = icmp slt i64 %body, 0
   br i1 %body_failed, label %fail, label %apply_body_params
 

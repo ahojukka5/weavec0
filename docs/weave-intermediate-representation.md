@@ -145,7 +145,7 @@ Example:
       (params)
       (returns i32)
 
-      (body
+      (do
         (return
           (const_i32 0))))))
 ```
@@ -210,7 +210,7 @@ Syntax:
 (fn NAME
   (params ...)
   (returns TYPE)
-  (body ...))
+  (do ...))
 ```
 
 Example:
@@ -222,7 +222,7 @@ Example:
     (b i32))
   (returns i32)
 
-  (body
+  (do
     (return
       (add_i32
         (param_get a)
@@ -474,7 +474,7 @@ Possible lowering:
 
 ## Control Flow
 
-### `(if CONDITION THEN ELSE)`
+### `(if (condition ...) (then ...) (else ...))`
 
 Structured conditional.
 
@@ -482,17 +482,20 @@ Example:
 
 ```lisp
 (if
-  (lt_i32
-    (const_i32 1)
-    (const_i32 2))
+  (condition
+    (lt_i32
+      (const_i32 1)
+      (const_i32 2)))
 
   (then
-    (return
-      (const_i32 42)))
+    (do
+      (return
+        (const_i32 42))))
 
   (else
-    (return
-      (const_i32 0))))
+    (do
+      (return
+        (const_i32 0)))))
 ```
 
 This is NOT yet a CFG.
@@ -514,7 +517,7 @@ else:
 
 ---
 
-### `(while CONDITION BODY)`
+### `(while (condition ...) (do ...))`
 
 Structured loop.
 
@@ -522,27 +525,28 @@ Example:
 
 ```lisp
 (while
-  (lt_i32
-    (local_get i)
-    (const_i32 7))
+  (condition
+    (lt_i32
+      (local_get i)
+      (const_i32 7)))
 
-  (body
-    (block
-      ...)))
+  (do
+    ...))
 ```
 
 The emitter lowers this into CFG blocks.
 
 ---
 
-### `(block ...)`
+### `(do ...)`
 
-Groups multiple statements.
+Groups an ordered statement sequence. Function bodies, loop bodies, and
+conditional branches use `do` for statement sequencing.
 
 Example:
 
 ```lisp
-(block
+(do
   (set x ...)
   (set y ...))
 ```

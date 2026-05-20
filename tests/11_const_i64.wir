@@ -1,16 +1,15 @@
 (core-module
   (core-version 1)
-
   (decls
-
-    (fn main
+    (fn
+      main
       (params)
       (returns i32)
-
-      (body
-        (let x i64
+      (do
+        (let
+          x
+          i64
           (const_i64 42))
-
         (return
           (cast_i64_to_i32
             (local_get x)))))))

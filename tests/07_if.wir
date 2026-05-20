@@ -1,23 +1,21 @@
 (core-module
   (core-version 1)
-
   (decls
-
-    (fn main
+    (fn
+      main
       (params)
       (returns i32)
-
-      (body
-
+      (do
         (if
-          (lt_i32
-            (const_i32 1)
-            (const_i32 2))
-
+          (condition
+            (lt_i32
+              (const_i32 1)
+              (const_i32 2)))
           (then
-            (return
-              (const_i32 42)))
-
+            (do
+              (return
+                (const_i32 42))))
           (else
-            (return
-              (const_i32 0))))))))
+            (do
+              (return
+                (const_i32 0)))))))))

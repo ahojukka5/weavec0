@@ -1,21 +1,18 @@
 (core-module
   (core-version 1)
-
   (decls
-
-    (fn answer64
+    (fn
+      answer64
       (params)
       (returns i64)
-
-      (body
+      (do
         (return
           (const_i64 42))))
-
-    (fn main
+    (fn
+      main
       (params)
       (returns i32)
-
-      (body
+      (do
         (return
           (cast_i64_to_i32
             (call_i64 answer64)))))))
