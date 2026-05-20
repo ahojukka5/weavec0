@@ -325,6 +325,160 @@ entry:
   ret i32 %status
 }
 
+define i32 @weave_emit_llvm_hex_escape(ptr %ctx, i32 %hi, i32 %lo) {
+entry:
+  %b0 = call i32 @weave_emit_byte(ptr %ctx, i32 92)
+  %b1 = call i32 @weave_emit_byte(ptr %ctx, i32 %hi)
+  %b2 = call i32 @weave_emit_byte(ptr %ctx, i32 %lo)
+  %b0_bad = icmp ne i32 %b0, 0
+  %b1_bad = icmp ne i32 %b1, 0
+  %b2_bad = icmp ne i32 %b2, 0
+  %bad01 = or i1 %b0_bad, %b1_bad
+  %bad = or i1 %bad01, %b2_bad
+  br i1 %bad, label %fail, label %ok
+
+ok:
+  ret i32 0
+
+fail:
+  ret i32 1
+}
+
+define i64 @weave_llvm_string_payload_length(ptr %ctx, i64 %start, i64 %length) {
+entry:
+  %source = call ptr @weave_emit_source(ptr %ctx)
+  %data = call ptr @weave_source_data(ptr %source)
+  br label %loop
+
+loop:
+  %offset = phi i64 [0, %entry], [%next_offset, %count_one]
+  %count = phi i64 [0, %entry], [%next_count, %count_one]
+  %done = icmp uge i64 %offset, %length
+  br i1 %done, label %done_block, label %read
+
+read:
+  %absolute = add i64 %start, %offset
+  %ptr = getelementptr inbounds i8, ptr %data, i64 %absolute
+  %ch_i8 = load i8, ptr %ptr
+  %ch = zext i8 %ch_i8 to i32
+  %is_backslash = icmp eq i32 %ch, 92
+  %after_backslash = add i64 %offset, 1
+  %has_escape_char = icmp ult i64 %after_backslash, %length
+  %is_escape = and i1 %is_backslash, %has_escape_char
+  br i1 %is_escape, label %count_escape, label %count_regular
+
+count_escape:
+  %escape_next_offset = add i64 %offset, 2
+  br label %count_one
+
+count_regular:
+  %regular_next_offset = add i64 %offset, 1
+  br label %count_one
+
+count_one:
+  %next_offset = phi i64 [%escape_next_offset, %count_escape], [%regular_next_offset, %count_regular]
+  %next_count = add i64 %count, 1
+  br label %loop
+
+done_block:
+  ret i64 %count
+}
+
+define i32 @weave_emit_llvm_string_slice(ptr %ctx, i64 %start, i64 %length) {
+entry:
+  %source = call ptr @weave_emit_source(ptr %ctx)
+  %data = call ptr @weave_source_data(ptr %source)
+  br label %loop
+
+loop:
+  %offset = phi i64 [0, %entry], [%next_offset, %after_emit]
+  %done = icmp uge i64 %offset, %length
+  br i1 %done, label %ok, label %read
+
+read:
+  %absolute = add i64 %start, %offset
+  %ptr = getelementptr inbounds i8, ptr %data, i64 %absolute
+  %ch_i8 = load i8, ptr %ptr
+  %ch = zext i8 %ch_i8 to i32
+  %is_backslash = icmp eq i32 %ch, 92
+  %after_backslash = add i64 %offset, 1
+  %has_escape_char = icmp ult i64 %after_backslash, %length
+  %is_escape = and i1 %is_backslash, %has_escape_char
+  br i1 %is_escape, label %read_escape, label %emit_regular
+
+read_escape:
+  %escape_absolute = add i64 %start, %after_backslash
+  %escape_ptr = getelementptr inbounds i8, ptr %data, i64 %escape_absolute
+  %escape_i8 = load i8, ptr %escape_ptr
+  %escape = zext i8 %escape_i8 to i32
+  %is_newline_escape = icmp eq i32 %escape, 110
+  %is_quote_escape = icmp eq i32 %escape, 34
+  %is_backslash_escape = icmp eq i32 %escape, 92
+  br i1 %is_newline_escape, label %emit_newline_escape, label %check_quote_escape
+
+check_quote_escape:
+  br i1 %is_quote_escape, label %emit_quote_escape, label %check_backslash_escape
+
+check_backslash_escape:
+  br i1 %is_backslash_escape, label %emit_backslash_escape, label %emit_escaped_byte
+
+emit_newline_escape:
+  %newline_status = call i32 @weave_emit_llvm_hex_escape(ptr %ctx, i32 48, i32 65)
+  br label %after_escape_emit
+
+emit_quote_escape:
+  %quote_status = call i32 @weave_emit_llvm_hex_escape(ptr %ctx, i32 50, i32 50)
+  br label %after_escape_emit
+
+emit_backslash_escape:
+  %backslash_status = call i32 @weave_emit_llvm_hex_escape(ptr %ctx, i32 53, i32 67)
+  br label %after_escape_emit
+
+emit_escaped_byte:
+  %escaped_status = call i32 @weave_emit_byte(ptr %ctx, i32 %escape)
+  br label %after_escape_emit
+
+after_escape_emit:
+  %escape_status = phi i32 [%newline_status, %emit_newline_escape], [%quote_status, %emit_quote_escape], [%backslash_status, %emit_backslash_escape], [%escaped_status, %emit_escaped_byte]
+  %escape_bad = icmp ne i32 %escape_status, 0
+  br i1 %escape_bad, label %fail, label %after_escape_ok
+
+after_escape_ok:
+  %escape_next = add i64 %offset, 2
+  br label %after_emit
+
+emit_regular:
+  %is_raw_newline = icmp eq i32 %ch, 10
+  br i1 %is_raw_newline, label %emit_raw_newline, label %emit_raw_byte
+
+emit_raw_newline:
+  %raw_newline_status = call i32 @weave_emit_llvm_hex_escape(ptr %ctx, i32 48, i32 65)
+  br label %after_regular_emit
+
+emit_raw_byte:
+  %raw_status = call i32 @weave_emit_byte(ptr %ctx, i32 %ch)
+  br label %after_regular_emit
+
+after_regular_emit:
+  %regular_status = phi i32 [%raw_newline_status, %emit_raw_newline], [%raw_status, %emit_raw_byte]
+  %regular_bad = icmp ne i32 %regular_status, 0
+  br i1 %regular_bad, label %fail, label %after_regular_ok
+
+after_regular_ok:
+  %regular_next = add i64 %offset, 1
+  br label %after_emit
+
+after_emit:
+  %next_offset = phi i64 [%escape_next, %after_escape_ok], [%regular_next, %after_regular_ok]
+  br label %loop
+
+ok:
+  ret i32 0
+
+fail:
+  ret i32 1
+}
+
 ; ----------------------------------------------------------------------------
 ; Local type lookup
 ; ----------------------------------------------------------------------------
@@ -1170,7 +1324,8 @@ entry:
   %ast = call ptr @weave_emit_ast(ptr %ctx)
   %text_start = call i64 @weave_ast_text_start(ptr %ast, i64 %node_index)
   %text_len = call i64 @weave_ast_text_len(ptr %ast, i64 %node_index)
-  %type_len = add i64 %text_len, 1
+  %payload_len = call i64 @weave_llvm_string_payload_length(ptr %ctx, i64 %text_start, i64 %text_len)
+  %type_len = add i64 %payload_len, 1
 
   %s0 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.str_global_prefix)
   %node_i32 = trunc i64 %node_index to i32
@@ -1179,7 +1334,7 @@ entry:
   %type_len_i32 = trunc i64 %type_len to i32
   %s3 = call i32 @weave_emit_i32(ptr %ctx, i32 %type_len_i32)
   %s4 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.str_type_mid)
-  %s5 = call i32 @weave_emit_source_slice(ptr %ctx, i64 %text_start, i64 %text_len)
+  %s5 = call i32 @weave_emit_llvm_string_slice(ptr %ctx, i64 %text_start, i64 %text_len)
   %s6 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.str_suffix)
 
   %s0_failed = icmp ne i32 %s0, 0

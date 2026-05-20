@@ -194,6 +194,38 @@ run_case() {
   log "ok $name"
 }
 
+run_compile_fail_case() {
+  local name="$1"
+
+  local src="$TEST_DIR/${name}.wir"
+  local ll="$BUILD_DIR/${name}.ll"
+  local stderr="$BUILD_DIR/${name}.stderr"
+
+  [[ -f "$src" ]] || fail "missing test source: $src"
+
+  log "compile-fail $name"
+  set +e
+  "$WEAVEC0" "$src" "$ll" 2>"$stderr"
+  local compile_status=$?
+  set -e
+
+  if [[ "$compile_status" == 0 ]]; then
+    printf '\n--- unexpected generated LLVM IR: %s ---\n' "$ll" >&2
+    sed -n '1,120p' "$ll" >&2 || true
+    printf '\n' >&2
+    fail "$name: expected compiler failure, got success"
+  fi
+
+  if ! grep -q "parsing failed" "$stderr"; then
+    printf '\n--- compiler stderr: %s ---\n' "$stderr" >&2
+    sed -n '1,120p' "$stderr" >&2 || true
+    printf '\n' >&2
+    fail "$name: expected parse error diagnostic"
+  fi
+
+  log "ok $name"
+}
+
 main() {
   build_weavec0
 
@@ -239,6 +271,16 @@ main() {
   run_case "38_i32_comparisons_full" 42
   run_case "39_i64_ge_gt" 42
   run_case "40_call_bool_direct" 42
+  run_case "41_load_store_ptr" 42
+  run_case "42_empty_do" 42
+  run_case "43_if_fallthrough_join" 42
+  run_case "44_while_zero_iterations" 42
+  run_case "45_nested_while" 42
+  run_case "46_forward_function_call" 42
+  run_case "47_multiple_externs_used_subset" 42
+  run_case "48_string_escape" 42
+  run_case "49_negative_i32_literal" 42
+  run_compile_fail_case "50_parse_error_smoke"
 
   log "all bootstrap tests passed"
 }

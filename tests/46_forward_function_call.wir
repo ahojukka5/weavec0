@@ -1,0 +1,24 @@
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (call_i32 answer)
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+
+    (fn answer
+      (params)
+      (returns i32)
+      (do
+        (return
+          (const_i32 42)
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

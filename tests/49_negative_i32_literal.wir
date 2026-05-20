@@ -1,0 +1,17 @@
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (add_i32
+            (const_i32 -8)
+            (const_i32 50)
+          ) ;; add_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module
