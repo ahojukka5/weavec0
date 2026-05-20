@@ -11,8 +11,7 @@ set -euo pipefail
 # The test ladder proves only one thing:
 #
 #     weavec0 can compile tiny Weave programs into LLVM IR,
-#     clang can build that IR,
-#     and the resulting executable behaves as expected.
+#     and the generated LLVM IR matches the checked-in golden fixtures.
 #
 # It does not prove that the production compiler is ready.
 # It does not prove self-hosting yet.
@@ -154,33 +153,22 @@ build_weavec0() {
 
 run_case() {
   local name="$1"
-  local expected_exit="$2"
 
   local src="$TEST_DIR/${name}.wir"
+  local expected_ll="$TEST_DIR/${name}.expected.ll"
   local ll="$BUILD_DIR/${name}.ll"
-  local exe="$BUILD_DIR/${name}.out"
 
   [[ -f "$src" ]] || fail "missing test source: $src"
+  [[ -f "$expected_ll" ]] || fail "missing expected LLVM IR: $expected_ll"
 
   log "compile $name"
   "$WEAVEC0" "$src" "$ll"
 
   [[ -s "$ll" ]] || fail "compiler produced empty LLVM IR for $name"
 
-  log "clang $name"
-  clang "$ll" -o "$exe"
-
-  log "run $name"
-  set +e
-  "$exe"
-  local actual_exit=$?
-  set -e
-
-  if [[ "$actual_exit" != "$expected_exit" ]]; then
-    printf '\n--- generated LLVM IR: %s ---\n' "$ll" >&2
-    sed -n '1,200p' "$ll" >&2 || true
-    printf '\n' >&2
-    fail "$name: expected exit $expected_exit, got $actual_exit"
+  log "compare $name"
+  if ! diff -u "$expected_ll" "$ll"; then
+    fail "$name: generated LLVM IR differs from expected fixture"
   fi
 
   log "ok $name"
@@ -191,40 +179,40 @@ main() {
 
   # Keep this ladder small. Add a new test only when the matching bootstrap
   # feature has been deliberately admitted.
-  run_case "01_return_constant" 0
-  run_case "02_return_42" 42
-  run_case "03_add" 42
-  run_case "04_one_arg_function" 42
-  run_case "05_let_local" 42
-  run_case "06_set_local" 42
-  run_case "07_if" 42
-  run_case "08_while" 42
-  run_case "09_two_arg_function" 42
-  run_case "10_string_literal" 42
-  run_case "11_const_i64" 42
-  run_case "12_i64_arithmetic" 42
-  run_case "13_i64_comparisons" 42
-  run_case "14_bool_ops" 42
-  run_case "15_ptr_null" 42
-  run_case "16_extern_malloc_free" 42
-  run_case "17_ptr_add_store_load_i64" 42
-  run_case "18_store_load_i8" 42
-  run_case "19_call_void" 42
-  run_case "20_call_i64" 42
-  run_case "21_call_ptr" 42
-  run_case "22_return_void" 42
-  run_case "23_mod_i32" 2
-  run_case "24_buffer_like_smoke" 42
-  run_case "25_ptr_params_call_i32" 42
-  run_case "26_bool_return" 42
-  run_case "27_three_arg_function" 42
-  run_case "28_i32_memory_and_cast" 42
-  run_case "29_const_string_ptr" 42
-  run_case "30_i64_sub_eq" 42
-  run_case "31_not_bool" 42
-  run_case "32_codegen_join_and_i64_arg" 42
-  run_case "33_store_i8_temp" 42
-  run_case "34_ge_i32" 42
+  run_case "01_return_constant"
+  run_case "02_return_42"
+  run_case "03_add"
+  run_case "04_one_arg_function"
+  run_case "05_let_local"
+  run_case "06_set_local"
+  run_case "07_if"
+  run_case "08_while"
+  run_case "09_two_arg_function"
+  run_case "10_string_literal"
+  run_case "11_const_i64"
+  run_case "12_i64_arithmetic"
+  run_case "13_i64_comparisons"
+  run_case "14_bool_ops"
+  run_case "15_ptr_null"
+  run_case "16_extern_malloc_free"
+  run_case "17_ptr_add_store_load_i64"
+  run_case "18_store_load_i8"
+  run_case "19_call_void"
+  run_case "20_call_i64"
+  run_case "21_call_ptr"
+  run_case "22_return_void"
+  run_case "23_mod_i32"
+  run_case "24_buffer_like_smoke"
+  run_case "25_ptr_params_call_i32"
+  run_case "26_bool_return"
+  run_case "27_three_arg_function"
+  run_case "28_i32_memory_and_cast"
+  run_case "29_const_string_ptr"
+  run_case "30_i64_sub_eq"
+  run_case "31_not_bool"
+  run_case "32_codegen_join_and_i64_arg"
+  run_case "33_store_i8_temp"
+  run_case "34_ge_i32"
 
   log "all bootstrap tests passed"
 }

@@ -307,7 +307,7 @@ The compiler is built using:
 
 Internally this invokes `clang` on:
 
-- all `.ll` files
+- linked bootstrap bitcode
 - `runtime.c`
 
 Result:
@@ -411,6 +411,15 @@ Stage 0 should eventually stabilize and mostly freeze.
 # Test Ladder
 
 The bootstrap compiler evolves through a curated test ladder.
+
+Each test has two fixtures:
+
+- `tests/<name>.wir`
+- `tests/<name>.expected.ll`
+
+The ladder compiles each `.wir` file with `weavec0` and compares the generated
+LLVM IR directly against the matching expected file. It does not compile and
+run each generated test program.
 
 Example progression:
 
@@ -542,4 +551,3 @@ stable
 ```
 
 The real compiler comes later.
-
