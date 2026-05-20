@@ -135,6 +135,25 @@ parse:
   br i1 %parse_failed, label %parse_error, label %init_output
 
 parse_error:
+  %parse_error_code = call i32 @weave_parse_error_get()
+  %is_unknown_operator = icmp eq i32 %parse_error_code, 1
+  br i1 %is_unknown_operator, label %parse_unknown_operator, label %check_parse_arity
+
+check_parse_arity:
+  %is_invalid_arity = icmp eq i32 %parse_error_code, 2
+  br i1 %is_invalid_arity, label %parse_invalid_arity, label %parse_generic_error
+
+parse_unknown_operator:
+  %msg_unknown_operator = call ptr @weave_cstr_err_unknown_operator()
+  call void @weave_driver_print_error(ptr %msg_unknown_operator)
+  br label %cleanup_ast_tokens_source_fail
+
+parse_invalid_arity:
+  %msg_invalid_arity = call ptr @weave_cstr_err_invalid_arity()
+  call void @weave_driver_print_error(ptr %msg_invalid_arity)
+  br label %cleanup_ast_tokens_source_fail
+
+parse_generic_error:
   %msg_parse = call ptr @weave_cstr_err_parse()
   call void @weave_driver_print_error(ptr %msg_parse)
   br label %cleanup_ast_tokens_source_fail

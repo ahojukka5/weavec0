@@ -417,9 +417,14 @@ Each test has two fixtures:
 - `tests/<name>.wir`
 - `tests/<name>.expected.ll`
 
-The ladder compiles each `.wir` file with `weavec0` and compares the generated
-LLVM IR directly against the matching expected file. It does not compile and
-run each generated test program.
+The ladder compiles each positive `.wir` file with `weavec0` and checks the
+result in several small steps:
+
+1. generated LLVM matches golden fixtures
+2. generated LLVM is accepted by `llvm-as`
+3. generated LLVM can be compiled by `clang`
+4. executable exit code matches expected behavior
+5. selected invalid WIR inputs fail cleanly
 
 Example progression:
 

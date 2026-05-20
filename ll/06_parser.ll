@@ -12,6 +12,32 @@
 ; input. There is no recovery, no diagnostics framework, and no type checking.
 ; =============================================================================
 
+@weave.parse_error_code = internal global i32 0
+
+define void @weave_parse_error_clear() {
+entry:
+  store i32 0, ptr @weave.parse_error_code
+  ret void
+}
+
+define void @weave_parse_error_unknown_operator() {
+entry:
+  store i32 1, ptr @weave.parse_error_code
+  ret void
+}
+
+define void @weave_parse_error_invalid_arity() {
+entry:
+  store i32 2, ptr @weave.parse_error_code
+  ret void
+}
+
+define i32 @weave_parse_error_get() {
+entry:
+  %code = load i32, ptr @weave.parse_error_code
+  ret i32 %code
+}
+
 ; ----------------------------------------------------------------------------
 ; Parser layout reminder
 ; ----------------------------------------------------------------------------
@@ -543,12 +569,16 @@ parse_binary:
 binary_rhs:
   %rhs = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
   %rhs_failed = icmp slt i64 %rhs, 0
-  br i1 %rhs_failed, label %fail, label %binary_close
+  br i1 %rhs_failed, label %binary_arity_fail, label %binary_close
 
 binary_close:
   %close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
   %close_failed = icmp ne i32 %close_status, 0
-  br i1 %close_failed, label %fail, label %make_binary
+  br i1 %close_failed, label %binary_arity_fail, label %make_binary
+
+binary_arity_fail:
+  call void @weave_parse_error_invalid_arity()
+  br label %fail
 
 make_binary:
   %op_wide = zext i32 %op to i64
@@ -691,7 +721,11 @@ check_ne_ptr:
 
 check_print:
   %is_print = icmp eq i32 %head_kind, 45
-  br i1 %is_print, label %parse_print, label %fail
+  br i1 %is_print, label %parse_print, label %unknown_operator
+
+unknown_operator:
+  call void @weave_parse_error_unknown_operator()
+  br label %fail
 
 parse_const_i32:
   call void @weave_parser_advance(ptr %parser)
@@ -2545,6 +2579,7 @@ fail:
 
 define i64 @weave_parse(ptr %tokens, ptr %ast) {
 entry:
+  call void @weave_parse_error_clear()
   %parser_storage = alloca %weave.Parser
   call void @weave_parser_init(ptr %parser_storage, ptr %tokens)
   %program = call i64 @weave_parse_program(ptr %parser_storage, ptr %ast)

@@ -173,6 +173,8 @@ declare ptr @weave_rt_stdout()
 @weave.str.err_lex = private unnamed_addr constant [22 x i8] c"error: lexing failed\0A\00"
 @weave.str.err_parse = private unnamed_addr constant [23 x i8] c"error: parsing failed\0A\00"
 @weave.str.err_emit = private unnamed_addr constant [25 x i8] c"error: LLVM emit failed\0A\00"
+@weave.str.err_unknown_operator = private unnamed_addr constant [25 x i8] c"error: unknown operator\0A\00"
+@weave.str.err_invalid_arity = private unnamed_addr constant [31 x i8] c"error: invalid operator arity\0A\00"
 
 ; ----------------------------------------------------------------------------
 ; Helper accessors for constant strings
@@ -209,4 +211,14 @@ entry:
 define ptr @weave_cstr_err_emit() {
 entry:
   ret ptr @weave.str.err_emit
+}
+
+define ptr @weave_cstr_err_unknown_operator() {
+entry:
+  ret ptr @weave.str.err_unknown_operator
+}
+
+define ptr @weave_cstr_err_invalid_arity() {
+entry:
+  ret ptr @weave.str.err_invalid_arity
 }

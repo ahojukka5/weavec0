@@ -11,9 +11,11 @@ set -euo pipefail
 # The test ladder proves:
 #
 #     - weavec0 can compile tiny Weave programs into LLVM IR
+#     - generated LLVM IR matches the checked-in golden fixtures
+#     - llvm-as accepts the generated LLVM IR
 #     - clang can build that IR
 #     - the resulting executable behaves as expected
-#     - generated LLVM IR matches the checked-in golden fixtures
+#     - selected invalid WIR inputs fail cleanly
 #
 # It does not prove that the production compiler is ready.
 # It does not prove self-hosting yet.
@@ -160,12 +162,16 @@ run_case() {
   local src="$TEST_DIR/${name}.wir"
   local expected_ll="$TEST_DIR/${name}.expected.ll"
   local ll="$BUILD_DIR/${name}.ll"
+  local generated_bc="$BUILD_DIR/${name}.generated.bc"
   local exe="$BUILD_DIR/${name}.out"
 
   [[ -f "$src" ]] || fail "missing test source: $src"
 
   log "compile $name"
   "$WEAVEC0" "$src" "$ll"
+
+  log "llvm-as $name"
+  llvm-as "$ll" -o "$generated_bc"
 
   log "clang $name"
   clang "$ll" -o "$exe"
@@ -196,6 +202,7 @@ run_case() {
 
 run_compile_fail_case() {
   local name="$1"
+  local expected_message="$2"
 
   local src="$TEST_DIR/${name}.wir"
   local ll="$BUILD_DIR/${name}.ll"
@@ -204,6 +211,7 @@ run_compile_fail_case() {
   [[ -f "$src" ]] || fail "missing test source: $src"
 
   log "compile-fail $name"
+  rm -f "$ll" "$stderr"
   set +e
   "$WEAVEC0" "$src" "$ll" 2>"$stderr"
   local compile_status=$?
@@ -216,11 +224,18 @@ run_compile_fail_case() {
     fail "$name: expected compiler failure, got success"
   fi
 
-  if ! grep -q "parsing failed" "$stderr"; then
+  if [[ -s "$ll" ]]; then
+    printf '\n--- unexpected generated LLVM IR: %s ---\n' "$ll" >&2
+    sed -n '1,120p' "$ll" >&2 || true
+    printf '\n' >&2
+    fail "$name: compiler failure still produced non-empty LLVM IR"
+  fi
+
+  if ! grep -q "$expected_message" "$stderr"; then
     printf '\n--- compiler stderr: %s ---\n' "$stderr" >&2
     sed -n '1,120p' "$stderr" >&2 || true
     printf '\n' >&2
-    fail "$name: expected parse error diagnostic"
+    fail "$name: expected diagnostic containing: $expected_message"
   fi
 
   log "ok $name"
@@ -280,7 +295,10 @@ main() {
   run_case "47_multiple_externs_used_subset" 42
   run_case "48_string_escape" 42
   run_case "49_negative_i32_literal" 42
-  run_compile_fail_case "50_parse_error_smoke"
+  run_compile_fail_case "50_parse_error_smoke" "parsing failed"
+  run_compile_fail_case "51_unknown_operator" "unknown operator"
+  run_compile_fail_case "52_wrong_arity_add_i32_too_few" "arity"
+  run_compile_fail_case "53_wrong_arity_add_i32_too_many" "arity"
 
   log "all bootstrap tests passed"
 }
