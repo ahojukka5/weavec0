@@ -1,3 +1,8 @@
+; 35_sub_i32.wir
+; purpose: adds direct i32 subtraction operator coverage.
+; verifies sub_i32 parsing and arithmetic lowering path.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

@@ -1,3 +1,8 @@
+; 15_ptr_null.wir
+; purpose: validates pointer null literal and pointer comparison operators.
+; verifies const_null, eq_ptr, and ne_ptr behavior in executable code.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

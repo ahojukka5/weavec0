@@ -1,3 +1,8 @@
+; 16_extern_malloc_free.wir
+; purpose: checks extern declaration handling and foreign function calls.
+; verifies malloc/free externs are emitted and callable from WIR.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

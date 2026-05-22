@@ -1,3 +1,8 @@
+; 27_three_arg_function.wir
+; purpose: extends call signature coverage to three parameters.
+; verifies parser and emitter handling for larger param lists.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

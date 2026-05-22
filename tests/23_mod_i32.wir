@@ -1,3 +1,8 @@
+; 23_mod_i32.wir
+; purpose: adds signed remainder coverage for i32 via mod_i32.
+; verifies modulo semantics by returning the remainder value directly.
+; expected runtime behavior: process exits with code 2.
+
 (core-module
   (core-version 1)
   (decls

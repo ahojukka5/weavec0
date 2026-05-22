@@ -1,3 +1,8 @@
+; 31_not_bool.wir
+; purpose: covers unary boolean negation via not_bool.
+; verifies logical inversion emits correct i1 xor-based lowering.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

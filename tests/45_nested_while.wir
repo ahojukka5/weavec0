@@ -1,3 +1,8 @@
+; 45_nested_while.wir
+; purpose: stresses nested loop parsing and label generation.
+; verifies inner/outer loop control flow remains structurally correct.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

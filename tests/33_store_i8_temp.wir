@@ -1,3 +1,8 @@
+; 33_store_i8_temp.wir
+; purpose: checks temporary-value path for byte stores.
+; verifies transient i32 values are correctly truncated before store_i8.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

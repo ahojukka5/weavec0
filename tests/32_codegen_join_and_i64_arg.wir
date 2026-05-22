@@ -1,3 +1,8 @@
+; 32_codegen_join_and_i64_arg.wir
+; purpose: stresses label join generation with i64 argument flow.
+; verifies control-flow joins still preserve i64 call/return correctness.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

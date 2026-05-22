@@ -1,3 +1,8 @@
+; 34_ge_i32.wir
+; purpose: validates signed greater-or-equal comparison for i32.
+; verifies ge_i32 emits the expected icmp sge behavior.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

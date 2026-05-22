@@ -1,3 +1,8 @@
+; 11_const_i64.wir
+; purpose: introduces 64-bit constants into the bootstrap subset.
+; verifies const_i64 plus cast_i64_to_i32 round-trip in return position.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

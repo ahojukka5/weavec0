@@ -1,3 +1,8 @@
+; 12_i64_arithmetic.wir
+; purpose: validates arithmetic operators over i64 values.
+; verifies i64 math results can be consumed by later casts/returns.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

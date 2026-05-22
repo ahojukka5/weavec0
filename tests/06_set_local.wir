@@ -1,3 +1,8 @@
+; 06_set_local.wir
+; purpose: validates local mutation after declaration.
+; verifies set updates a previously introduced local before return.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

@@ -1,3 +1,8 @@
+; 05_let_local.wir
+; purpose: exercises local variable introduction with let.
+; verifies local allocation, initialization, and readback via local_get.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

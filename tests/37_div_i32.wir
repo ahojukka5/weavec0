@@ -1,3 +1,8 @@
+; 37_div_i32.wir
+; purpose: validates signed division behavior for i32 values.
+; verifies div_i32 emits sdiv and returns the expected quotient.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

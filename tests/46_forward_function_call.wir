@@ -1,3 +1,8 @@
+; 46_forward_function_call.wir
+; purpose: validates calling a function before its textual definition.
+; verifies declaration ordering and symbol resolution in emitted LLVM IR.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

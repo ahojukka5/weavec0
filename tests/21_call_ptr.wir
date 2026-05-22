@@ -1,3 +1,8 @@
+; 21_call_ptr.wir
+; purpose: validates call sites for pointer-returning functions.
+; verifies ptr values can be returned from calls and used safely afterward.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

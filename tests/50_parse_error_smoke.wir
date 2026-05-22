@@ -1,3 +1,8 @@
+; 50_parse_error_smoke.wir
+; purpose: baseline negative test for generic parse failure handling.
+; verifies malformed input is rejected instead of producing output LLVM IR.
+; expected compiler behavior: compilation fails with a parsing diagnostic.
+
 (core-module
   (core-version 1)
   (decls

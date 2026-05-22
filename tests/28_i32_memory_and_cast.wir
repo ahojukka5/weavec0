@@ -1,3 +1,8 @@
+; 28_i32_memory_and_cast.wir
+; purpose: combines i32 memory operations with explicit integer casts.
+; verifies load_i32/store_i32 plus cast transitions between i32 and i64.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

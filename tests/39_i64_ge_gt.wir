@@ -1,3 +1,8 @@
+; 39_i64_ge_gt.wir
+; purpose: validates greater-than and greater-or-equal for i64.
+; verifies both comparisons map to correct signed icmp variants.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

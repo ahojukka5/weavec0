@@ -1,3 +1,8 @@
+; 40_call_bool_direct.wir
+; purpose: checks direct invocation of bool-returning functions.
+; verifies call_bool result usage without intermediate casts.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

@@ -1,3 +1,8 @@
+; 10_string_literal.wir
+; purpose: checks string literal tokenization and emission path.
+; verifies const_string handling with runtime print interaction.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

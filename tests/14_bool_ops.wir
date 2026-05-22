@@ -1,3 +1,8 @@
+; 14_bool_ops.wir
+; purpose: exercises core boolean operators and_bool/or_bool.
+; verifies bool expressions lower to i1 operations and branch safely.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

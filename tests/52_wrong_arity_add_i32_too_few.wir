@@ -1,3 +1,8 @@
+; 52_wrong_arity_add_i32_too_few.wir
+; purpose: validates arity checking for add_i32 with missing arguments.
+; verifies parser rejects too-few-argument calls with a clear error.
+; expected compiler behavior: compilation fails with an arity diagnostic.
+
 (core-module
   (core-version 1)
   (decls

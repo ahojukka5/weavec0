@@ -1,3 +1,8 @@
+; 08_while.wir
+; purpose: validates loop lowering for while with mutable locals.
+; verifies repeated updates eventually produce the expected final value.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

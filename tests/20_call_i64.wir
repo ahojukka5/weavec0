@@ -1,3 +1,8 @@
+; 20_call_i64.wir
+; purpose: validates call sites for i64-returning functions.
+; verifies i64 call result propagation into later computation/return.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

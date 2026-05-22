@@ -1,3 +1,8 @@
+; 48_string_escape.wir
+; purpose: validates escaped characters inside string literals.
+; verifies emitter escapes bytes correctly for LLVM string constants.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

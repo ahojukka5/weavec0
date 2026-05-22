@@ -1,3 +1,8 @@
+; 01_return_constant.wir
+; purpose: baseline smoke test for the smallest valid module and function body.
+; verifies that returning const_i32 0 is parsed, lowered, and executable.
+; expected runtime behavior: process exits with code 0.
+
 (core-module
   (core-version 1)
   (decls

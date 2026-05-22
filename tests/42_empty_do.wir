@@ -1,3 +1,8 @@
+; 42_empty_do.wir
+; purpose: ensures empty do blocks are accepted and emitted safely.
+; verifies parser and codegen do not require non-empty statement lists.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

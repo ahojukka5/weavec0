@@ -1,3 +1,8 @@
+; 24_buffer_like_smoke.wir
+; purpose: smoke-tests a sequence that resembles buffer-style pointer updates.
+; verifies mixed pointer/math operations compose correctly in one function.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

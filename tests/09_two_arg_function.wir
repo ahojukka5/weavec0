@@ -1,3 +1,8 @@
+; 09_two_arg_function.wir
+; purpose: extends call coverage to two-parameter function signatures.
+; verifies argument order and multi-arg call emission.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

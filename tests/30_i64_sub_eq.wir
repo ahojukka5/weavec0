@@ -1,3 +1,8 @@
+; 30_i64_sub_eq.wir
+; purpose: validates i64 subtraction followed by equality comparison.
+; verifies BIN_SUB_I64 and BIN_EQ_I64 lowering in one scenario.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

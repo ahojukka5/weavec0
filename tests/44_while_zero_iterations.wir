@@ -1,3 +1,8 @@
+; 44_while_zero_iterations.wir
+; purpose: validates while loops whose condition is false at entry.
+; verifies zero-iteration loops skip body execution cleanly.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

@@ -1,3 +1,8 @@
+; 29_const_string_ptr.wir
+; purpose: checks const_string_ptr generation for pointer-typed string data.
+; verifies emitted globals and pointer usage for string addresses.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

@@ -1,3 +1,8 @@
+; 18_store_load_i8.wir
+; purpose: validates byte-level memory ops with store_i8/load_u8.
+; verifies truncation and zero-extension flow for 8-bit values.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

@@ -1,3 +1,8 @@
+; 49_negative_i32_literal.wir
+; purpose: checks parsing and lowering of negative i32 literals.
+; verifies signed literal handling without rewriting semantics.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

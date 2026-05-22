@@ -1,3 +1,8 @@
+; 51_unknown_operator.wir
+; purpose: ensures unsupported operators are rejected explicitly.
+; verifies parser reports unknown-operator diagnostics on invalid forms.
+; expected compiler behavior: compilation fails with an unknown operator diagnostic.
+
 (core-module
   (core-version 1)
   (decls

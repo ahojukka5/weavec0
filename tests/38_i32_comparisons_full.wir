@@ -1,3 +1,8 @@
+; 38_i32_comparisons_full.wir
+; purpose: exercises the complete i32 comparison operator surface.
+; verifies eq/ne/lt/le/gt/ge paths remain coherent together.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

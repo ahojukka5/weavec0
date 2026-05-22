@@ -1,3 +1,8 @@
+; 26_bool_return.wir
+; purpose: covers functions that return bool values.
+; verifies bool-return call sites integrate with conditional branches.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

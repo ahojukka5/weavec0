@@ -1,3 +1,8 @@
+; 04_one_arg_function.wir
+; purpose: validates single-parameter function declaration and call wiring.
+; verifies argument passing through param_get in a called function.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

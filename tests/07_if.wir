@@ -1,3 +1,8 @@
+; 07_if.wir
+; purpose: checks conditional control-flow emission for if/then/else.
+; verifies the true branch result is selected and returned.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

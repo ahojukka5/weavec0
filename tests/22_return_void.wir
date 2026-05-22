@@ -1,3 +1,8 @@
+; 22_return_void.wir
+; purpose: checks explicit return_void statement handling.
+; verifies void functions terminate cleanly in emitted LLVM IR.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

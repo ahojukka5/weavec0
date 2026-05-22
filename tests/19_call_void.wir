@@ -1,3 +1,8 @@
+; 19_call_void.wir
+; purpose: adds coverage for calling functions that return void.
+; verifies call_void statements are emitted without value misuse.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

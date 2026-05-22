@@ -1,3 +1,8 @@
+; 17_ptr_add_store_load_i64.wir
+; purpose: covers pointer arithmetic with i64 memory load/store operations.
+; verifies ptr_add addressing and round-trip i64 memory access.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

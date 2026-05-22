@@ -1,3 +1,8 @@
+; 25_ptr_params_call_i32.wir
+; purpose: validates passing pointer parameters into i32-returning functions.
+; verifies ptr argument plumbing and dereference-related call flow.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls

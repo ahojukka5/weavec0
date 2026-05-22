@@ -1,3 +1,8 @@
+; 43_if_fallthrough_join.wir
+; purpose: checks if-branches that reconverge with fallthrough behavior.
+; verifies join-label emission remains correct without duplicated returns.
+; expected runtime behavior: process exits with code 42.
+
 (core-module
   (core-version 1)
   (decls
