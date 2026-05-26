@@ -198,13 +198,33 @@ entry:
 ; Per-extern declare lines and matching name keys. The bootstrap admits only
 ; the small C-runtime subset that the test ladder exercises; an unknown extern
 ; in the WIR is a deliberate hard error.
-@weave.emit.declare_puts   = private unnamed_addr constant [24 x i8] c"declare i32 @puts(ptr)\0A\00"
-@weave.emit.declare_malloc = private unnamed_addr constant [26 x i8] c"declare ptr @malloc(i64)\0A\00"
-@weave.emit.declare_free   = private unnamed_addr constant [25 x i8] c"declare void @free(ptr)\0A\00"
-@weave.emit.name_puts   = private unnamed_addr constant [5 x i8] c"puts\00"
-@weave.emit.name_malloc = private unnamed_addr constant [7 x i8] c"malloc\00"
-@weave.emit.name_free   = private unnamed_addr constant [5 x i8] c"free\00"
-@weave.emit.err_unknown_extern = private unnamed_addr constant [57 x i8] c"weavec0: extern not supported (only puts, malloc, free)\0A\00"
+@weave.emit.declare_puts    = private unnamed_addr constant [24 x i8] c"declare i32 @puts(ptr)\0A\00"
+@weave.emit.declare_malloc  = private unnamed_addr constant [26 x i8] c"declare ptr @malloc(i64)\0A\00"
+@weave.emit.declare_free    = private unnamed_addr constant [25 x i8] c"declare void @free(ptr)\0A\00"
+@weave.emit.declare_realloc = private unnamed_addr constant [32 x i8] c"declare ptr @realloc(ptr, i64)\0A\00"
+@weave.emit.declare_memcpy  = private unnamed_addr constant [36 x i8] c"declare ptr @memcpy(ptr, ptr, i64)\0A\00"
+@weave.emit.declare_strlen  = private unnamed_addr constant [26 x i8] c"declare i64 @strlen(ptr)\0A\00"
+@weave.emit.declare_strcmp  = private unnamed_addr constant [31 x i8] c"declare i32 @strcmp(ptr, ptr)\0A\00"
+@weave.emit.declare_strncmp = private unnamed_addr constant [37 x i8] c"declare i32 @strncmp(ptr, ptr, i64)\0A\00"
+@weave.emit.declare_atoi    = private unnamed_addr constant [24 x i8] c"declare i32 @atoi(ptr)\0A\00"
+@weave.emit.declare_putchar = private unnamed_addr constant [27 x i8] c"declare i32 @putchar(i32)\0A\00"
+@weave.emit.declare_rrf     = private unnamed_addr constant [43 x i8] c"declare ptr @weave_rt_read_file(ptr, ptr)\0A\00"
+@weave.emit.declare_rwf     = private unnamed_addr constant [49 x i8] c"declare i32 @weave_rt_write_file(ptr, ptr, i64)\0A\00"
+@weave.emit.declare_rfatal  = private unnamed_addr constant [35 x i8] c"declare void @weave_rt_fatal(ptr)\0A\00"
+@weave.emit.name_puts    = private unnamed_addr constant [5 x i8]  c"puts\00"
+@weave.emit.name_malloc  = private unnamed_addr constant [7 x i8]  c"malloc\00"
+@weave.emit.name_free    = private unnamed_addr constant [5 x i8]  c"free\00"
+@weave.emit.name_realloc = private unnamed_addr constant [8 x i8]  c"realloc\00"
+@weave.emit.name_memcpy  = private unnamed_addr constant [7 x i8]  c"memcpy\00"
+@weave.emit.name_strlen  = private unnamed_addr constant [7 x i8]  c"strlen\00"
+@weave.emit.name_strcmp  = private unnamed_addr constant [7 x i8]  c"strcmp\00"
+@weave.emit.name_strncmp = private unnamed_addr constant [8 x i8]  c"strncmp\00"
+@weave.emit.name_atoi    = private unnamed_addr constant [5 x i8]  c"atoi\00"
+@weave.emit.name_putchar = private unnamed_addr constant [8 x i8]  c"putchar\00"
+@weave.emit.name_rrf     = private unnamed_addr constant [19 x i8] c"weave_rt_read_file\00"
+@weave.emit.name_rwf     = private unnamed_addr constant [20 x i8] c"weave_rt_write_file\00"
+@weave.emit.name_rfatal  = private unnamed_addr constant [15 x i8] c"weave_rt_fatal\00"
+@weave.emit.err_unknown_extern = private unnamed_addr constant [124 x i8] c"weavec0: extern not supported (admitted: puts, malloc, free, realloc, memcpy, strlen, strcmp, strncmp, atoi, putchar, ...)\0A\00"
 @weave.emit.define_i32 = private unnamed_addr constant [13 x i8] c"define i32 @\00"
 @weave.emit.define_i64 = private unnamed_addr constant [13 x i8] c"define i64 @\00"
 @weave.emit.define_ptr = private unnamed_addr constant [13 x i8] c"define ptr @\00"
@@ -3759,13 +3779,18 @@ fail:
 ; Returns:
 ;   0 on success (the matching declare line was written).
 ;   1 on failure: either an underlying append failed, or the extern name is
-;     not in the bootstrap admitted set (puts, malloc, free) — in that case
-;     a "weavec0: extern not supported" diagnostic is also printed to
-;     stderr.
+;     not in the bootstrap admitted set — in that case a "weavec0: extern
+;     not supported" diagnostic is also printed to stderr.
+;
+; Admitted set (matches the C-runtime subset that weavec1 needs):
+;     puts, malloc, free, realloc, memcpy, strlen, strcmp, strncmp,
+;     atoi, putchar, weave_rt_read_file, weave_rt_write_file, weave_rt_fatal.
 ;
 ; Notes:
 ;   Unknown-name failure is intentionally loud and terminal. Stage 0 must
-;   not silently emit broken IR for an extern it does not recognise.
+;   not silently emit broken IR for an extern it does not recognise. New
+;   names are admitted only when a downstream stage (weavec1, weavec2,
+;   ...) genuinely needs them; bumping the list is a versioned change.
 ; ----------------------------------------------------------------------------
 
 define i32 @weave_emit_extern_decl(ptr %ctx, i64 %name_start, i64 %name_len) {
@@ -3794,11 +3819,101 @@ emit_malloc:
 check_free:
   %is_free = call i32 @weave_bytes_equal(ptr %slice, i64 %name_len, ptr @weave.emit.name_free, i64 4)
   %match_free = icmp ne i32 %is_free, 0
-  br i1 %match_free, label %emit_free, label %unknown
+  br i1 %match_free, label %emit_free, label %check_realloc
 
 emit_free:
   %sf = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.declare_free)
   ret i32 %sf
+
+check_realloc:
+  %is_realloc = call i32 @weave_bytes_equal(ptr %slice, i64 %name_len, ptr @weave.emit.name_realloc, i64 7)
+  %match_realloc = icmp ne i32 %is_realloc, 0
+  br i1 %match_realloc, label %emit_realloc, label %check_memcpy
+
+emit_realloc:
+  %sr = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.declare_realloc)
+  ret i32 %sr
+
+check_memcpy:
+  %is_memcpy = call i32 @weave_bytes_equal(ptr %slice, i64 %name_len, ptr @weave.emit.name_memcpy, i64 6)
+  %match_memcpy = icmp ne i32 %is_memcpy, 0
+  br i1 %match_memcpy, label %emit_memcpy, label %check_strlen
+
+emit_memcpy:
+  %smc = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.declare_memcpy)
+  ret i32 %smc
+
+check_strlen:
+  %is_strlen = call i32 @weave_bytes_equal(ptr %slice, i64 %name_len, ptr @weave.emit.name_strlen, i64 6)
+  %match_strlen = icmp ne i32 %is_strlen, 0
+  br i1 %match_strlen, label %emit_strlen, label %check_strcmp
+
+emit_strlen:
+  %ssl = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.declare_strlen)
+  ret i32 %ssl
+
+check_strcmp:
+  %is_strcmp = call i32 @weave_bytes_equal(ptr %slice, i64 %name_len, ptr @weave.emit.name_strcmp, i64 6)
+  %match_strcmp = icmp ne i32 %is_strcmp, 0
+  br i1 %match_strcmp, label %emit_strcmp, label %check_strncmp
+
+emit_strcmp:
+  %ssc = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.declare_strcmp)
+  ret i32 %ssc
+
+check_strncmp:
+  %is_strncmp = call i32 @weave_bytes_equal(ptr %slice, i64 %name_len, ptr @weave.emit.name_strncmp, i64 7)
+  %match_strncmp = icmp ne i32 %is_strncmp, 0
+  br i1 %match_strncmp, label %emit_strncmp, label %check_atoi
+
+emit_strncmp:
+  %ssn = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.declare_strncmp)
+  ret i32 %ssn
+
+check_atoi:
+  %is_atoi = call i32 @weave_bytes_equal(ptr %slice, i64 %name_len, ptr @weave.emit.name_atoi, i64 4)
+  %match_atoi = icmp ne i32 %is_atoi, 0
+  br i1 %match_atoi, label %emit_atoi, label %check_putchar
+
+emit_atoi:
+  %sa = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.declare_atoi)
+  ret i32 %sa
+
+check_putchar:
+  %is_putchar = call i32 @weave_bytes_equal(ptr %slice, i64 %name_len, ptr @weave.emit.name_putchar, i64 7)
+  %match_putchar = icmp ne i32 %is_putchar, 0
+  br i1 %match_putchar, label %emit_putchar, label %check_rrf
+
+emit_putchar:
+  %spc = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.declare_putchar)
+  ret i32 %spc
+
+check_rrf:
+  %is_rrf = call i32 @weave_bytes_equal(ptr %slice, i64 %name_len, ptr @weave.emit.name_rrf, i64 18)
+  %match_rrf = icmp ne i32 %is_rrf, 0
+  br i1 %match_rrf, label %emit_rrf, label %check_rwf
+
+emit_rrf:
+  %srrf = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.declare_rrf)
+  ret i32 %srrf
+
+check_rwf:
+  %is_rwf = call i32 @weave_bytes_equal(ptr %slice, i64 %name_len, ptr @weave.emit.name_rwf, i64 19)
+  %match_rwf = icmp ne i32 %is_rwf, 0
+  br i1 %match_rwf, label %emit_rwf, label %check_rfatal
+
+emit_rwf:
+  %srwf = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.declare_rwf)
+  ret i32 %srwf
+
+check_rfatal:
+  %is_rfatal = call i32 @weave_bytes_equal(ptr %slice, i64 %name_len, ptr @weave.emit.name_rfatal, i64 14)
+  %match_rfatal = icmp ne i32 %is_rfatal, 0
+  br i1 %match_rfatal, label %emit_rfatal, label %unknown
+
+emit_rfatal:
+  %srfa = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.declare_rfatal)
+  ret i32 %srfa
 
 unknown:
   call void @weave_driver_print_error(ptr @weave.emit.err_unknown_extern)

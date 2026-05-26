@@ -1,0 +1,82 @@
+; 101_extern_runtime_subset.wir
+; purpose: declares every C-runtime extern that weavec1's runtime_bindings.wir
+;   needs (and that weavec0 must admit so weavec1 can self-compile).
+; verifies the emitter produces a `declare ...` line for each name. Only one
+;   extern is actually called at runtime — the rest are declared and dropped,
+;   which is enough to exercise weave_emit_extern_decl's full dispatch chain.
+; expected runtime behavior: process exits with code 42 (after calling
+;   weave_rt_fatal? — no, that would not return; we use putchar to emit '*'
+;   and return 42).
+
+(core-module
+  (core-version 1)
+  (decls
+    (extern puts
+      (params (text ptr))
+      (returns i32)
+    ) ;; extern
+    (extern malloc
+      (params (size i64))
+      (returns ptr)
+    ) ;; extern
+    (extern free
+      (params (p ptr))
+      (returns void)
+    ) ;; extern
+    (extern realloc
+      (params (p ptr) (size i64))
+      (returns ptr)
+    ) ;; extern
+    (extern memcpy
+      (params (dst ptr) (src ptr) (n i64))
+      (returns ptr)
+    ) ;; extern
+    (extern strlen
+      (params (s ptr))
+      (returns i64)
+    ) ;; extern
+    (extern strcmp
+      (params (a ptr) (b ptr))
+      (returns i32)
+    ) ;; extern
+    (extern strncmp
+      (params (a ptr) (b ptr) (n i64))
+      (returns i32)
+    ) ;; extern
+    (extern atoi
+      (params (s ptr))
+      (returns i32)
+    ) ;; extern
+    (extern putchar
+      (params (ch i32))
+      (returns i32)
+    ) ;; extern
+    (extern weave_rt_read_file
+      (params (path ptr) (out_len ptr))
+      (returns ptr)
+    ) ;; extern
+    (extern weave_rt_write_file
+      (params (path ptr) (data ptr) (length i64))
+      (returns i32)
+    ) ;; extern
+    (extern weave_rt_fatal
+      (params (message ptr))
+      (returns void)
+    ) ;; extern
+
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        ;; Use one of the newly admitted externs at runtime so the link
+        ;; step actually exercises the produced declare. putchar('*') prints
+        ;; the byte 42 == '*' which the test runner ignores.
+        (let _ch i32
+          (call_i32 putchar (const_i32 42))
+        ) ;; let
+
+        (return (const_i32 42))
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

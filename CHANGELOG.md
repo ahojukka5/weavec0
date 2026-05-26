@@ -9,9 +9,22 @@ freezes.
 
 ## [Unreleased]
 
-The first public release of `weavec0` is intended to be cut from this
-section. When the `v0.1.0` git tag lands, rename this heading to
-`## [0.1.0] — YYYY-MM-DD`.
+### Added
+- Ten more admitted externs in `weave_emit_extern_decl`
+  (`realloc`, `memcpy`, `strlen`, `strcmp`, `strncmp`, `atoi`,
+  `putchar`, `weave_rt_read_file`, `weave_rt_write_file`,
+  `weave_rt_fatal`). This is the C-runtime subset that `weavec1`'s
+  `runtime_bindings.wir` needs, so `weavec1` can now self-compile
+  against published `weavec0`. New positive test
+  `test/101_extern_runtime_subset.wir` declares the full subset.
+
+### Changed
+- `test/54_unknown_extern.wir` now declares a truly unknown name
+  (`frobnicate`) rather than `strlen`, which is admitted now.
+
+## [0.1.0]
+
+The first public release.
 
 ### Added
 - Apache-2.0 licensing (`LICENSE`, `NOTICE`, SPDX headers on every owned

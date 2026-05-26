@@ -124,3 +124,4 @@ pass 97_bool_and_with_call_bool         42
 pass 98_function_with_i64_param         42
 pass 99_many_locals_compound            42
 pass 100_grand_finale                   42
+pass 101_extern_runtime_subset          42

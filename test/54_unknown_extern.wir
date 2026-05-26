@@ -5,7 +5,7 @@
 (core-module
   (core-version 1)
   (decls
-    (extern strlen
+    (extern frobnicate
       (params
         (s ptr)
       ) ;; params
