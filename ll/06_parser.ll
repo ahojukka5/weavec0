@@ -483,6 +483,36 @@ fail:
   ret i64 -1
 }
 
+; ----------------------------------------------------------------------------
+; weave_parser_consume_optional_empty_paren_list
+;
+; After (params, consume an optional empty child list written as ().
+; Both (params) and (params ()) denote zero parameters.
+; ----------------------------------------------------------------------------
+
+define void @weave_parser_consume_optional_empty_paren_list(ptr %parser) {
+entry:
+  %kind = call i32 @weave_parser_current_kind(ptr %parser)
+  %is_lparen = icmp eq i32 %kind, 1
+  br i1 %is_lparen, label %check_empty, label %done
+
+check_empty:
+  %tokens = call ptr @weave_parser_tokens(ptr %parser)
+  %index = call i64 @weave_parser_index(ptr %parser)
+  %next_index = add i64 %index, 1
+  %peek = call i32 @weave_token_kind(ptr %tokens, i64 %next_index)
+  %is_rparen = icmp eq i32 %peek, 2
+  br i1 %is_rparen, label %consume, label %done
+
+consume:
+  call void @weave_parser_advance(ptr %parser)
+  %close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
+  br label %done
+
+done:
+  ret void
+}
+
 define i64 @weave_parse_wir_params(ptr %parser, ptr %ast) {
 entry:
   %open_status = call i32 @weave_parser_expect(ptr %parser, i32 1)
@@ -492,11 +522,15 @@ entry:
 expect_params:
   %params_status = call i32 @weave_parser_expect(ptr %parser, i32 28)
   %params_failed = icmp ne i32 %params_status, 0
-  br i1 %params_failed, label %fail, label %loop
+  br i1 %params_failed, label %fail, label %after_params
+
+after_params:
+  call void @weave_parser_consume_optional_empty_paren_list(ptr %parser)
+  br label %loop
 
 loop:
-  %list_head = phi i64 [-1, %expect_params], [%list_node, %after_param]
-  %count = phi i64 [0, %expect_params], [%count_next, %after_param]
+  %list_head = phi i64 [-1, %after_params], [%list_node, %after_param]
+  %count = phi i64 [0, %after_params], [%count_next, %after_param]
   %kind = call i32 @weave_parser_current_kind(ptr %parser)
   %done = icmp eq i32 %kind, 2
   br i1 %done, label %finish, label %parse_param

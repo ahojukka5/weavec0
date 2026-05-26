@@ -300,6 +300,8 @@ main() {
   run_compile_fail_case "52_wrong_arity_add_i32_too_few" "arity"
   run_compile_fail_case "53_wrong_arity_add_i32_too_many" "arity"
 
+  run_case "60_empty_params_paren_list" 42
+
   log "all bootstrap tests passed"
 }
 
