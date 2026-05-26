@@ -74,12 +74,12 @@ It is not the destination.
 # Repository Structure
 
 ```text
-bootstrap/
+weavec0/
   build.sh
   runtime.c
   runtime.h
 
-  ll/
+  src/
     00_prelude.ll
     01_runtime_bindings.ll
     02_strings.ll
@@ -90,6 +90,11 @@ bootstrap/
     07_emit_llvm.ll
     08_driver.ll
     09_main.ll
+
+  test/
+    NN_<name>.wir              positive case: WIR input
+    NN_<name>.expected.ll      positive case: golden LLVM output
+    NN_<name>.wir              negative case: WIR-only (compile must fail)
 ```
 
 The numeric prefixes are intentional.
@@ -414,8 +419,8 @@ The bootstrap compiler evolves through a curated test ladder.
 
 Each test has two fixtures:
 
-- `tests/<name>.wir`
-- `tests/<name>.expected.ll`
+- `test/<name>.wir`
+- `test/<name>.expected.ll`
 
 The ladder compiles each positive `.wir` file with `weavec0` and checks the
 result in several small steps:

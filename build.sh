@@ -22,7 +22,7 @@ set -euo pipefail
 # =============================================================================
 
 BOOTSTRAP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TEST_DIR="$BOOTSTRAP_DIR/tests"
+TEST_DIR="$BOOTSTRAP_DIR/test"
 BUILD_DIR="$BOOTSTRAP_DIR/build/bootstrap-tests"
 BC_DIR="$BUILD_DIR/bc"
 GEN_LL_DIR="$BUILD_DIR/ll"
@@ -33,15 +33,15 @@ PRELUDE_LL="$BUILD_DIR/module_prelude.ll"
 DECLS_LL="$BUILD_DIR/module_declarations.ll"
 
 MODULES=(
-  "$BOOTSTRAP_DIR/ll/01_runtime_bindings.ll"
-  "$BOOTSTRAP_DIR/ll/02_strings.ll"
-  "$BOOTSTRAP_DIR/ll/03_tokens.ll"
-  "$BOOTSTRAP_DIR/ll/04_lexer.ll"
-  "$BOOTSTRAP_DIR/ll/05_ast.ll"
-  "$BOOTSTRAP_DIR/ll/06_parser.ll"
-  "$BOOTSTRAP_DIR/ll/07_emit_llvm.ll"
-  "$BOOTSTRAP_DIR/ll/08_driver.ll"
-  "$BOOTSTRAP_DIR/ll/09_main.ll"
+  "$BOOTSTRAP_DIR/src/01_runtime_bindings.ll"
+  "$BOOTSTRAP_DIR/src/02_strings.ll"
+  "$BOOTSTRAP_DIR/src/03_tokens.ll"
+  "$BOOTSTRAP_DIR/src/04_lexer.ll"
+  "$BOOTSTRAP_DIR/src/05_ast.ll"
+  "$BOOTSTRAP_DIR/src/06_parser.ll"
+  "$BOOTSTRAP_DIR/src/07_emit_llvm.ll"
+  "$BOOTSTRAP_DIR/src/08_driver.ll"
+  "$BOOTSTRAP_DIR/src/09_main.ll"
 )
 
 mkdir -p "$BUILD_DIR" "$BC_DIR" "$GEN_LL_DIR"
@@ -66,7 +66,7 @@ build_weavec0() {
   require_tool llvm-link
   require_tool clang
 
-  sed '/^; Token kind constants/,$d' "$BOOTSTRAP_DIR/ll/00_prelude.ll" > "$PRELUDE_LL"
+  sed '/^; Token kind constants/,$d' "$BOOTSTRAP_DIR/src/00_prelude.ll" > "$PRELUDE_LL"
 
   awk '
     function emit_signature() {
