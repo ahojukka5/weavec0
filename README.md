@@ -642,11 +642,16 @@ Documented so users are not surprised.
   operators (`const_i64`, `add_i64`, `cast_i64_to_i32`, ...). Anything
   outside this is out of scope for Stage 0.
 
-- **Tiny extern subset.** Only `puts`, `malloc`, and `free` are
-  recognised. Declaring any other extern in WIR is a hard error
-  (`weavec0: extern not supported`). Expanding the set means adding a
-  name+signature entry to `weave_emit_extern_decl` in
-  [`src/07_emit_llvm.ll`](src/07_emit_llvm.ll).
+- **Fixed extern subset.** Only the C-runtime names the Weave chain
+  itself needs are recognised: `puts`, `malloc`, `free`, `realloc`,
+  `memcpy`, `strlen`, `strcmp`, `strncmp`, `atoi`, `putchar`,
+  `weave_rt_read_file`, `weave_rt_write_file`, `weave_rt_fatal`.
+  Declaring any other extern in WIR is a hard error
+  (`weavec0: extern not supported`). Expanding the set is a
+  versioned change to `weavec0` — add a name+signature entry to
+  `weave_emit_extern_decl` in
+  [`src/07_emit_llvm.ll`](src/07_emit_llvm.ll), bump the tag, and
+  point downstream stages at the new tag.
 
 - **Blunt diagnostics.** Errors are one of `parsing failed`,
   `unknown operator`, `invalid arity`, or `extern not supported`,

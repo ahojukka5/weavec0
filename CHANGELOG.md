@@ -9,6 +9,8 @@ freezes.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-05-26
+
 ### Added
 - Ten more admitted externs in `weave_emit_extern_decl`
   (`realloc`, `memcpy`, `strlen`, `strcmp`, `strncmp`, `atoi`,
@@ -17,12 +19,14 @@ freezes.
   `runtime_bindings.wir` needs, so `weavec1` can now self-compile
   against published `weavec0`. New positive test
   `test/101_extern_runtime_subset.wir` declares the full subset.
+- README's Known Limitations section updated to reflect the
+  expanded admitted set.
 
 ### Changed
 - `test/54_unknown_extern.wir` now declares a truly unknown name
   (`frobnicate`) rather than `strlen`, which is admitted now.
 
-## [0.1.0]
+## [0.1.0] — 2026-05-26
 
 The first public release.
 
