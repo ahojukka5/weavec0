@@ -1,0 +1,24 @@
+; 82_return_casted_value.wir
+; purpose: returns a cast_i64_to_i32 expression directly.
+; verifies cast emission inside return works without an intermediate let.
+; expected runtime behavior: process exits with code 42.
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (cast_i64_to_i32
+            (add_i64
+              (const_i64 40)
+              (const_i64 2)
+            ) ;; add_i64
+          ) ;; cast_i64_to_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

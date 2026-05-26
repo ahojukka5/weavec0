@@ -1,0 +1,43 @@
+; 88_nested_function_call_chain.wir
+; purpose: composes three function calls where each call's result feeds the next.
+; verifies the temp allocator does not collide across nested call_i32 invocations.
+; expected runtime behavior: process exits with code 42 (double(triple(7)) = 42).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn triple
+      (params (x i32))
+      (returns i32)
+      (do
+        (return
+          (mul_i32 (param_get x) (const_i32 3))
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+
+    (fn double
+      (params (x i32))
+      (returns i32)
+      (do
+        (return
+          (mul_i32 (param_get x) (const_i32 2))
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (call_i32 double
+            (call_i32 triple
+              (const_i32 7)
+            ) ;; call_i32
+          ) ;; call_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

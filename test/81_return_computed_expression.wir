@@ -1,0 +1,28 @@
+; 81_return_computed_expression.wir
+; purpose: returns the result of a multi-operand expression rather than a literal or local.
+; verifies the return statement evaluates its expression and emits the resulting temp.
+; expected runtime behavior: process exits with code 42 ((20 - 8) * 3 + 6).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (add_i32
+            (mul_i32
+              (sub_i32
+                (const_i32 20)
+                (const_i32 8)
+              ) ;; sub_i32
+              (const_i32 3)
+            ) ;; mul_i32
+            (const_i32 6)
+          ) ;; add_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

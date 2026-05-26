@@ -1,0 +1,37 @@
+; 97_bool_and_with_call_bool.wir
+; purpose: combines a call_bool result with a comparison via and_bool.
+; verifies a function-returning-bool composes naturally with the bool operators
+;   without an explicit local intermediate.
+; expected runtime behavior: process exits with code 42 (both clauses true).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn is_positive
+      (params (x i32))
+      (returns bool)
+      (do
+        (return
+          (gt_i32 (param_get x) (const_i32 0))
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (if
+          (condition
+            (and_bool
+              (call_bool is_positive (const_i32 5))
+              (lt_i32 (const_i32 1) (const_i32 9))
+            ) ;; and_bool
+          ) ;; condition
+          (then (do (return (const_i32 42))))
+          (else (do (return (const_i32 0))))
+        ) ;; if
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

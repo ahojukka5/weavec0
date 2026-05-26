@@ -1,0 +1,19 @@
+; 63_const_i32_zero.wir
+; purpose: confirms a bare const_i32 0 round-trips through lex, parse, emit.
+; verifies zero-value handling does not collapse into a special path.
+; expected runtime behavior: process exits with code 0.
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (const_i32 0)
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

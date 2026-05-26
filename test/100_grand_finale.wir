@@ -1,0 +1,115 @@
+; 100_grand_finale.wir
+; purpose: capstone test that combines many admitted features in one program:
+;   externs, malloc/free, pointer arithmetic, i64 store/load through chained
+;   ptr_add, a helper function call, an if/else, a while loop, locals of
+;   three different types, casts, and a print. Nothing new — just a denser
+;   exercise of the existing surface than any single earlier case.
+; expected runtime behavior: process exits with code 42 (prints "ok").
+
+(core-module
+  (core-version 1)
+  (decls
+    (extern puts
+      (params (text ptr))
+      (returns i32)
+    ) ;; extern
+    (extern malloc
+      (params (size i64))
+      (returns ptr)
+    ) ;; extern
+    (extern free
+      (params (p ptr))
+      (returns void)
+    ) ;; extern
+
+    (fn sum_to
+      (params (n i32))
+      (returns i32)
+      (do
+        (let i i32 (const_i32 0)) ;; let
+        (let acc i32 (const_i32 0)) ;; let
+
+        (while
+          (condition
+            (le_i32
+              (local_get i)
+              (param_get n)
+            ) ;; le_i32
+          ) ;; condition
+          (do
+            (set acc
+              (add_i32 (local_get acc) (local_get i))
+            ) ;; set
+            (set i
+              (add_i32 (local_get i) (const_i32 1))
+            ) ;; set
+          ) ;; do
+        ) ;; while
+
+        (return (local_get acc))
+      ) ;; do
+    ) ;; fn
+
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        ;; A small heap-backed buffer to round-trip an i64 through.
+        (let p ptr
+          (call_ptr malloc (const_i64 16))
+        ) ;; let
+
+        (if
+          (condition
+            (eq_ptr (local_get p) (const_null))
+          ) ;; condition
+          (then (do (return (const_i32 1))))
+          (else (do)) ;; else
+        ) ;; if
+
+        ;; Write at base+8, read it back.
+        (store_i64
+          (ptr_add (local_get p) (const_i64 8))
+          (const_i64 8)
+        ) ;; store_i64
+
+        (let stored i64
+          (load_i64
+            (ptr_add (local_get p) (const_i64 8))
+          ) ;; load_i64
+        ) ;; let
+
+        (call_void free (local_get p)) ;; call_void
+
+        ;; Compute sum_to(8) = 36, plus the loaded 8, minus 2 = 42.
+        (let n i32
+          (call_i32 sum_to (const_i32 8))
+        ) ;; let
+
+        (let result i32
+          (sub_i32
+            (add_i32
+              (local_get n)
+              (cast_i64_to_i32 (local_get stored))
+            ) ;; add_i32
+            (const_i32 2)
+          ) ;; sub_i32
+        ) ;; let
+
+        (if
+          (condition
+            (eq_i32 (local_get result) (const_i32 42))
+          ) ;; condition
+          (then
+            (do
+              (print (const_string "ok"))
+            ) ;; do
+          ) ;; then
+          (else (do)) ;; else
+        ) ;; if
+
+        (return (local_get result))
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

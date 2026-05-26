@@ -1,0 +1,22 @@
+; 94_mul_i32_negative.wir
+; purpose: exercises mul_i32 with both operands negative.
+; verifies signed multiplication preserves sign correctly through the i32 path.
+; expected runtime behavior: process exits with code 42 (-6 * -7).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (mul_i32
+            (const_i32 -6)
+            (const_i32 -7)
+          ) ;; mul_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

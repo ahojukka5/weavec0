@@ -1,0 +1,54 @@
+; 93_chained_if_else_if.wir
+; purpose: nests three `if/else (if/else (if/else ...))` blocks to simulate
+;   a switch-style dispatch on a numeric value.
+; verifies each else-branch can host another fresh if without label collisions.
+; expected runtime behavior: process exits with code 42 (third arm selected).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (let v i32 (const_i32 3)) ;; let
+
+        (if
+          (condition
+            (eq_i32 (local_get v) (const_i32 1))
+          ) ;; condition
+          (then
+            (do (return (const_i32 10)))
+          ) ;; then
+          (else
+            (do
+              (if
+                (condition
+                  (eq_i32 (local_get v) (const_i32 2))
+                ) ;; condition
+                (then
+                  (do (return (const_i32 20)))
+                ) ;; then
+                (else
+                  (do
+                    (if
+                      (condition
+                        (eq_i32 (local_get v) (const_i32 3))
+                      ) ;; condition
+                      (then
+                        (do (return (const_i32 42)))
+                      ) ;; then
+                      (else
+                        (do (return (const_i32 99)))
+                      ) ;; else
+                    ) ;; if
+                  ) ;; do
+                ) ;; else
+              ) ;; if
+            ) ;; do
+          ) ;; else
+        ) ;; if
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

@@ -1,15 +1,19 @@
+; SPDX-License-Identifier: Apache-2.0
 ; =============================================================================
-; Weave Stage 0 Bootstrap Compiler
 ; 09_main.ll
 ;
-; Minimal command-line entry point for the hand-written LLVM IR Stage 0 compiler.
+; Command-line entry point for the hand-written LLVM IR Stage 0 compiler.
 ;
-; Interface:
+; Responsibilities:
+;   - validate the argv shape (`weavec0 input.wir output.ll`)
+;   - print a usage line to stderr on bad arguments
+;   - hand off to weave_compile_file (08_driver.ll) for the real work
+;   - translate the i32 status code from the driver into a process exit code
 ;
-;     weavec0 input.wir output.ll
-;
-; Stage 0 emits LLVM IR text only. It does not assemble, link, optimize, or run
-; the generated program.
+; Boundary:
+;   Stage 0 emits LLVM IR text only. It does not assemble, link, optimize,
+;   or run the generated program. Driving llvm-as / llvm-link / clang on the
+;   output is the responsibility of the build script (../build.sh).
 ; =============================================================================
 
 ; ----------------------------------------------------------------------------

@@ -1,73 +1,115 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
 # =============================================================================
-# Weave Stage 0 Bootstrap Test Ladder
-# weave/src-bootstrap-llvm/build.sh
+# weavec0 — Stage 0 bootstrap compiler build & test ladder
+# =============================================================================
 #
-# This script builds the hand-written LLVM IR Stage 0 compiler and runs the
-# curated bootstrap tests.
+# This script does two things, in order:
 #
-# The test ladder proves:
+#   1. Assembles the hand-written LLVM-IR Stage 0 compiler (`weavec0`) from
+#      the source modules under `src/` plus the small C runtime in `runtime.c`.
+#   2. Runs the curated test ladder under `test/`, driven by `test/manifest.txt`.
 #
-#     - weavec0 can compile tiny Weave programs into LLVM IR
-#     - generated LLVM IR matches the checked-in golden fixtures
-#     - llvm-as accepts the generated LLVM IR
-#     - clang can build that IR
-#     - the resulting executable behaves as expected
-#     - selected invalid WIR inputs fail cleanly
+# Each positive test case (manifest line: `pass <name> <exit>`) verifies:
 #
-# It does not prove that the production compiler is ready.
-# It does not prove self-hosting yet.
+#   - weavec0 compiles `test/<name>.wir` to LLVM IR
+#   - the generated LLVM matches the checked-in golden `test/<name>.expected.ll`
+#   - `llvm-as` accepts the generated LLVM
+#   - `clang` builds an executable from it
+#   - the executable exits with the declared code
+#
+# Each negative case (`fail <name> <substring>`) verifies:
+#
+#   - weavec0 exits non-zero
+#   - no .ll is produced
+#   - stderr contains the declared diagnostic substring
+#
+# Flags:
+#
+#   --regen-goldens
+#       On any golden mismatch, overwrite the expected .ll with the just-
+#       generated output instead of erroring. Useful after intentional
+#       output-format changes; review the resulting `git diff` before
+#       committing.
+#
+# This script is intentionally bash, not CMake, to match the convention used
+# by weavec1, weavec2 and weavefront in this repository.
 # =============================================================================
 
+REGEN_GOLDENS=0
+for arg in "$@"; do
+  case "$arg" in
+    --regen-goldens) REGEN_GOLDENS=1 ;;
+    -h|--help)
+      sed -n '4,40p' "$0"
+      exit 0
+      ;;
+    *) printf 'unknown flag: %s\n' "$arg" >&2; exit 2 ;;
+  esac
+done
+
 BOOTSTRAP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SRC_DIR="$BOOTSTRAP_DIR/src"
 TEST_DIR="$BOOTSTRAP_DIR/test"
 BUILD_DIR="$BOOTSTRAP_DIR/build/bootstrap-tests"
 BC_DIR="$BUILD_DIR/bc"
 GEN_LL_DIR="$BUILD_DIR/ll"
+MANIFEST="$TEST_DIR/manifest.txt"
 
 WEAVEC0="$BOOTSTRAP_DIR/weavec0"
 WEAVEC0_BC="$BUILD_DIR/weavec0.bc"
 PRELUDE_LL="$BUILD_DIR/module_prelude.ll"
 DECLS_LL="$BUILD_DIR/module_declarations.ll"
 
+# Source modules in dependency order. Numeric prefixes are load-bearing:
+# they pin the assemble/link order and give readers a stable mental map of
+# the pipeline (prelude → runtime → strings → tokens → lexer → ast → parser
+# → emit → driver → main).
 MODULES=(
-  "$BOOTSTRAP_DIR/src/01_runtime_bindings.ll"
-  "$BOOTSTRAP_DIR/src/02_strings.ll"
-  "$BOOTSTRAP_DIR/src/03_tokens.ll"
-  "$BOOTSTRAP_DIR/src/04_lexer.ll"
-  "$BOOTSTRAP_DIR/src/05_ast.ll"
-  "$BOOTSTRAP_DIR/src/06_parser.ll"
-  "$BOOTSTRAP_DIR/src/07_emit_llvm.ll"
-  "$BOOTSTRAP_DIR/src/08_driver.ll"
-  "$BOOTSTRAP_DIR/src/09_main.ll"
+  "$SRC_DIR/01_runtime_bindings.ll"
+  "$SRC_DIR/02_strings.ll"
+  "$SRC_DIR/03_tokens.ll"
+  "$SRC_DIR/04_lexer.ll"
+  "$SRC_DIR/05_ast.ll"
+  "$SRC_DIR/06_parser.ll"
+  "$SRC_DIR/07_emit_llvm.ll"
+  "$SRC_DIR/08_driver.ll"
+  "$SRC_DIR/09_main.ll"
 )
 
 mkdir -p "$BUILD_DIR" "$BC_DIR" "$GEN_LL_DIR"
 
-log() {
-  printf '[bootstrap] %s\n' "$*"
+log()  { printf '[bootstrap] %s\n' "$*" >&2; }
+fail() { printf '[bootstrap] error: %s\n' "$*" >&2; exit 1; }
+require_tool() { command -v "$1" >/dev/null 2>&1 || fail "required tool not found: $1"; }
+
+# -----------------------------------------------------------------------------
+# Building weavec0 itself
+# -----------------------------------------------------------------------------
+
+# Extract the module-wide prelude (target triple, type definitions, ABI notes)
+# from 00_prelude.ll. The constants below the "Token kind constants" banner are
+# documentation only and must NOT be prepended to every module, so we cut
+# everything from that banner onward. The leading SPDX line is also dropped:
+# each module file carries its own SPDX header as its first line, so emitting
+# the prelude verbatim would duplicate it in every assembled module.
+extract_module_prelude() {
+  sed -e '/^; SPDX-License-Identifier:/d' \
+      -e '/^; Token kind constants/,$d' \
+      "$SRC_DIR/00_prelude.ll" > "$PRELUDE_LL"
 }
 
-fail() {
-  printf '[bootstrap] error: %s\n' "$*" >&2
-  exit 1
-}
-
-require_tool() {
-  command -v "$1" >/dev/null 2>&1 || fail "required tool not found: $1"
-}
-
-build_weavec0() {
-  log "building weavec0"
-
-  require_tool llvm-as
-  require_tool llvm-link
-  require_tool clang
-
-  sed '/^; Token kind constants/,$d' "$BOOTSTRAP_DIR/src/00_prelude.ll" > "$PRELUDE_LL"
-
+# Build a single "all declarations" file by extracting every `define` signature
+# from every module and rewriting it as a `declare`.
+#
+# Why this exists: each module compiles independently with `llvm-as`. A module
+# that calls a function defined in another module needs a `declare` for it, or
+# llvm-as rejects the file. Rather than maintain per-module declare blocks by
+# hand, we synthesize them here from the actual `define` signatures, then
+# filter out a module's own definitions before prepending the rest as decls.
+extract_module_decls() {
   awk '
     function emit_signature() {
       gsub(/\n/, " ", signature)
@@ -77,83 +119,89 @@ build_weavec0() {
       signature = ""
       in_define = 0
     }
-
-    /^declare / {
-      print
-      next
-    }
-
+    /^declare / { print; next }
     /^define / {
       signature = $0
-      if ($0 ~ /\{[[:space:]]*$/) {
-        emit_signature()
-      } else {
-        in_define = 1
-      }
+      if ($0 ~ /\{[[:space:]]*$/) { emit_signature() } else { in_define = 1 }
       next
     }
-
     in_define {
       signature = signature "\n" $0
-      if ($0 ~ /\{[[:space:]]*$/) {
-        emit_signature()
-      }
+      if ($0 ~ /\{[[:space:]]*$/) { emit_signature() }
     }
   ' "${MODULES[@]}" > "$DECLS_LL"
+}
 
-  local bitcodes=()
-  for module in "${MODULES[@]}"; do
-    local base
-    local module_ll
-    local module_bc
-    local module_names
-    local module_decls
+# Assemble one module: write a self-contained .ll combining the prelude, the
+# externals-from-other-modules block, and the module's own source, then
+# `llvm-as` it to bitcode. Returns the bitcode path on stdout.
+assemble_module() {
+  local module="$1"
+  local base module_ll module_bc module_names module_decls
 
-    base="$(basename "$module" .ll)"
-    module_ll="$GEN_LL_DIR/$base.ll"
-    module_bc="$BC_DIR/$base.bc"
-    module_names="$BUILD_DIR/$base.names"
-    module_decls="$BUILD_DIR/$base.decls.ll"
+  base="$(basename "$module" .ll)"
+  module_ll="$GEN_LL_DIR/$base.ll"
+  module_bc="$BC_DIR/$base.bc"
+  module_names="$BUILD_DIR/$base.names"
+  module_decls="$BUILD_DIR/$base.decls.ll"
 
-    awk '/^(define|declare) / {
-      if (match($0, /@[A-Za-z0-9_.$-]+/)) {
-        print substr($0, RSTART, RLENGTH)
-      }
-    }' "$module" > "$module_names"
+  # Names defined in THIS module — they must be skipped when prepending decls
+  # from elsewhere (otherwise llvm-as complains about duplicate definitions).
+  awk '/^(define|declare) / {
+    if (match($0, /@[A-Za-z0-9_.$-]+/)) { print substr($0, RSTART, RLENGTH) }
+  }' "$module" > "$module_names"
 
-    awk 'NR == FNR {
-      skip[$1] = 1
-      next
-    }
+  awk 'NR == FNR { skip[$1] = 1; next }
     {
       if (match($0, /@[A-Za-z0-9_.$-]+/)) {
         name = substr($0, RSTART, RLENGTH)
-        if (name in skip) {
-          next
-        }
+        if (name in skip) next
       }
       print
     }' "$module_names" "$DECLS_LL" > "$module_decls"
 
-    {
-      cat "$PRELUDE_LL"
-      printf '\n; ---- external declarations ----\n\n'
-      cat "$module_decls"
-      printf '\n; ---- %s ----\n\n' "$base"
-      sed '/^source_filename = /d; /^target triple = /d; /^target datalayout = /d' "$module"
-    } > "$module_ll"
+  {
+    cat "$PRELUDE_LL"
+    printf '\n; ---- external declarations ----\n\n'
+    cat "$module_decls"
+    printf '\n; ---- %s ----\n\n' "$base"
+    sed '/^source_filename = /d; /^target triple = /d; /^target datalayout = /d' "$module"
+  } > "$module_ll"
 
-    log "assemble $base"
-    llvm-as "$module_ll" -o "$module_bc"
-    bitcodes+=("$module_bc")
-  done
+  log "assemble $base"
+  llvm-as "$module_ll" -o "$module_bc"
+  printf '%s\n' "$module_bc"
+}
 
+# Link all module bitcodes into a single .bc, then clang it with the C runtime
+# to produce the weavec0 executable.
+link_compiler() {
+  local bitcodes=("$@")
   log "link bitcode"
   llvm-link "${bitcodes[@]}" -o "$WEAVEC0_BC"
-
   log "link executable"
-  clang "$WEAVEC0_BC" "$BOOTSTRAP_DIR/runtime.c" -o "$WEAVEC0"
+  clang -Wno-override-module "$WEAVEC0_BC" "$BOOTSTRAP_DIR/runtime.c" -o "$WEAVEC0"
 }
+
+build_weavec0() {
+  log "building weavec0"
+  require_tool llvm-as
+  require_tool llvm-link
+  require_tool clang
+
+  extract_module_prelude
+  extract_module_decls
+
+  local bitcodes=()
+  for module in "${MODULES[@]}"; do
+    bitcodes+=("$(assemble_module "$module")")
+  done
+  link_compiler "${bitcodes[@]}"
+}
+
+# -----------------------------------------------------------------------------
+# Test runners
+# -----------------------------------------------------------------------------
 
 run_case() {
   local name="$1"
@@ -174,14 +222,14 @@ run_case() {
   llvm-as "$ll" -o "$generated_bc"
 
   log "clang $name"
-  clang "$ll" -o "$exe"
+  clang -Wno-override-module "$ll" -o "$exe"
 
   log "run $name"
   set +e
   "$exe"
   local actual_exit=$?
   set -e
- 
+
   if [[ "$actual_exit" != "$expected_exit" ]]; then
     printf '\n--- generated LLVM IR: %s ---\n' "$ll" >&2
     sed -n '1,200p' "$ll" >&2 || true
@@ -192,9 +240,21 @@ run_case() {
   [[ -s "$ll" ]] || fail "compiler produced empty LLVM IR for $name"
 
   log "compare $name"
-  [[ -f "$expected_ll" ]] || fail "missing expected LLVM IR: $expected_ll"
-  if ! diff -u "$expected_ll" "$ll"; then
-    fail "$name: generated LLVM IR differs from expected fixture"
+  if [[ ! -f "$expected_ll" ]]; then
+    if (( REGEN_GOLDENS )); then
+      cp "$ll" "$expected_ll"
+      log "regen $name (new golden)"
+    else
+      fail "missing expected LLVM IR: $expected_ll (rerun with --regen-goldens to create)"
+    fi
+  elif ! diff -u "$expected_ll" "$ll" >/dev/null; then
+    if (( REGEN_GOLDENS )); then
+      cp "$ll" "$expected_ll"
+      log "regen $name (updated golden)"
+    else
+      diff -u "$expected_ll" "$ll" || true
+      fail "$name: generated LLVM IR differs from expected fixture (rerun with --regen-goldens to accept)"
+    fi
   fi
 
   log "ok $name"
@@ -241,67 +301,29 @@ run_compile_fail_case() {
   log "ok $name"
 }
 
+# Drive the ladder from test/manifest.txt — one tab-or-space separated line
+# per case. Blank lines and `#`-prefixed comments are skipped.
+run_manifest() {
+  [[ -f "$MANIFEST" ]] || fail "missing test manifest: $MANIFEST"
+
+  local kind name rest
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%%#*}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    [[ -z "$line" ]] && continue
+
+    read -r kind name rest <<<"$line"
+    case "$kind" in
+      pass) run_case "$name" "$rest" ;;
+      fail) run_compile_fail_case "$name" "$rest" ;;
+      *)    fail "unknown manifest entry kind: $kind (line: $line)" ;;
+    esac
+  done < "$MANIFEST"
+}
+
 main() {
   build_weavec0
-
-  # Keep this ladder small. Add a new test only when the matching bootstrap
-  # feature has been deliberately admitted.
-  run_case "01_return_constant" 0
-  run_case "02_return_42" 42
-  run_case "03_add" 42
-  run_case "04_one_arg_function" 42
-  run_case "05_let_local" 42
-  run_case "06_set_local" 42
-  run_case "07_if" 42
-  run_case "08_while" 42
-  run_case "09_two_arg_function" 42
-  run_case "10_string_literal" 42
-  run_case "11_const_i64" 42
-  run_case "12_i64_arithmetic" 42
-  run_case "13_i64_comparisons" 42
-  run_case "14_bool_ops" 42
-  run_case "15_ptr_null" 42
-  run_case "16_extern_malloc_free" 42
-  run_case "17_ptr_add_store_load_i64" 42
-  run_case "18_store_load_i8" 42
-  run_case "19_call_void" 42
-  run_case "20_call_i64" 42
-  run_case "21_call_ptr" 42
-  run_case "22_return_void" 42
-  run_case "23_mod_i32" 2
-  run_case "24_buffer_like_smoke" 42
-  run_case "25_ptr_params_call_i32" 42
-  run_case "26_bool_return" 42
-  run_case "27_three_arg_function" 42
-  run_case "28_i32_memory_and_cast" 42
-  run_case "29_const_string_ptr" 42
-  run_case "30_i64_sub_eq" 42
-  run_case "31_not_bool" 42
-  run_case "32_codegen_join_and_i64_arg" 42
-  run_case "33_store_i8_temp" 42
-  run_case "34_ge_i32" 42
-  run_case "35_sub_i32" 42
-  run_case "36_mul_i32" 42
-  run_case "37_div_i32" 42
-  run_case "38_i32_comparisons_full" 42
-  run_case "39_i64_ge_gt" 42
-  run_case "40_call_bool_direct" 42
-  run_case "41_load_store_ptr" 42
-  run_case "42_empty_do" 42
-  run_case "43_if_fallthrough_join" 42
-  run_case "44_while_zero_iterations" 42
-  run_case "45_nested_while" 42
-  run_case "46_forward_function_call" 42
-  run_case "47_multiple_externs_used_subset" 42
-  run_case "48_string_escape" 42
-  run_case "49_negative_i32_literal" 42
-  run_compile_fail_case "50_parse_error_smoke" "parsing failed"
-  run_compile_fail_case "51_unknown_operator" "unknown operator"
-  run_compile_fail_case "52_wrong_arity_add_i32_too_few" "arity"
-  run_compile_fail_case "53_wrong_arity_add_i32_too_many" "arity"
-
-  run_case "60_empty_params_paren_list" 42
-
+  run_manifest
   log "all bootstrap tests passed"
 }
 

@@ -1,12 +1,22 @@
+; SPDX-License-Identifier: Apache-2.0
 ; =============================================================================
-; Weave Stage 0 Bootstrap Compiler
 ; 02_strings.ll
 ;
 ; Small string and byte-buffer helpers used by the lexer, parser, and LLVM
 ; emitter.
 ;
-; This is not a standard library. It is only the tiny text-handling layer needed
-; by the Stage 0 bridge.
+; Responsibilities:
+;   - manage growable %weave.Buffer instances (init/free, ensure_capacity)
+;   - append bytes, cstrs, integers, and other buffers into a Buffer
+;   - compare byte slices (weave_bytes_equal) used by keyword matching and
+;     extern-name dispatch in the emitter
+;   - back the byte/cstr/int append paths exercised by 07_emit_llvm.ll
+;
+; Boundary:
+;   This is not a standard library. It is only the tiny text-handling layer
+;   needed by the Stage 0 bridge.  All buffers own their data pointer and
+;   keep one trailing null byte where capacity permits, so callers may pass
+;   the data pointer to C helpers for debugging or for `puts`-style writes.
 ; =============================================================================
 
 ; ----------------------------------------------------------------------------
@@ -68,11 +78,17 @@ entry:
 ; ----------------------------------------------------------------------------
 ; weave_buffer_init
 ;
-; Initialize an empty buffer.
+; Allocate the initial backing array for a freshly-zeroed %weave.Buffer and
+; place a leading null byte so the data pointer is immediately safe to read
+; as a C string.
+;
+; Parameters:
+;   buffer - %weave.Buffer* (caller-owned storage, contents overwritten).
 ;
 ; Returns:
-;   0 on success
-;   1 on allocation failure
+;   0 on success.
+;   1 on malloc failure; the buffer is left in a null/zero state and a later
+;     append will retry through weave_buffer_reserve.
 ; ----------------------------------------------------------------------------
 
 define i32 @weave_buffer_init(ptr %buffer) {
@@ -220,7 +236,18 @@ fail:
 ; ----------------------------------------------------------------------------
 ; weave_buffer_append_bytes
 ;
-; Append `length` bytes from `src` and preserve null termination.
+; Append `length` raw bytes from `src` to `buffer`, growing capacity as
+; needed, and re-establish the trailing null byte.
+;
+; Parameters:
+;   buffer - %weave.Buffer* receiving the bytes.
+;   src    - source byte pointer; may be null only when length is 0.
+;   length - number of bytes to copy. Zero is allowed (becomes a no-op that
+;            still re-asserts the null terminator).
+;
+; Returns:
+;   0 on success.
+;   1 on allocation failure or when src is null with a non-zero length.
 ; ----------------------------------------------------------------------------
 
 define i32 @weave_buffer_append_bytes(ptr %buffer, ptr %src, i64 %length) {
@@ -334,9 +361,90 @@ fail:
 }
 
 ; ----------------------------------------------------------------------------
+; weave_buffer_append_i64
+;
+; Append a signed i64 as decimal text. Mirrors weave_buffer_append_i32; the
+; widened form is used by the emitter to materialise i64 literals (e.g.
+; `add i64 0, <lit>`) without silent truncation.
+;
+; Parameters:
+;   buffer - %weave.Buffer* receiving the digits.
+;   value  - signed i64 to format.
+;
+; Returns:
+;   0 on success.
+;   1 on allocation failure.
+; ----------------------------------------------------------------------------
+
+define i32 @weave_buffer_append_i64(ptr %buffer, i64 %value) {
+entry:
+  %is_negative = icmp slt i64 %value, 0
+  br i1 %is_negative, label %negative, label %nonnegative
+
+negative:
+  %dash_status = call i32 @weave_buffer_append_byte(ptr %buffer, i32 45)
+  %dash_failed = icmp ne i32 %dash_status, 0
+  br i1 %dash_failed, label %fail, label %negate
+
+negate:
+  ; -INT64_MIN does not fit; the bootstrap input language does not exercise
+  ; that single value at this width (parsed values come from atoll which
+  ; would reject it as overflow anyway).
+  %positive = sub i64 0, %value
+  br label %digits_start
+
+nonnegative:
+  br label %digits_start
+
+digits_start:
+  %number = phi i64 [%positive, %negate], [%value, %nonnegative]
+  %less_than_ten = icmp slt i64 %number, 10
+  br i1 %less_than_ten, label %single_digit, label %many_digits
+
+many_digits:
+  %prefix = sdiv i64 %number, 10
+  %prefix_status = call i32 @weave_buffer_append_i64(ptr %buffer, i64 %prefix)
+  %prefix_failed = icmp ne i32 %prefix_status, 0
+  br i1 %prefix_failed, label %fail, label %last_digit
+
+last_digit:
+  %remainder = srem i64 %number, 10
+  br label %emit_digit
+
+single_digit:
+  br label %emit_digit
+
+emit_digit:
+  %digit = phi i64 [%number, %single_digit], [%remainder, %last_digit]
+  %digit_i32 = trunc i64 %digit to i32
+  %ascii = add i32 %digit_i32, 48
+  %status = call i32 @weave_buffer_append_byte(ptr %buffer, i32 %ascii)
+  ret i32 %status
+
+fail:
+  ret i32 1
+}
+
+; ----------------------------------------------------------------------------
 ; weave_bytes_equal
 ;
-; Return i32 1 if two byte slices are equal, otherwise i32 0.
+; Compare two byte slices for exact equality. Used pervasively by the lexer
+; for keyword recognition and by the emitter for extern-name dispatch.
+;
+; Parameters:
+;   a     - first byte pointer (may be null only when a_len is 0).
+;   a_len - byte length of slice `a`.
+;   b     - second byte pointer (may be null only when b_len is 0).
+;   b_len - byte length of slice `b`.
+;
+; Returns:
+;   1 if both slices have the same length and the same bytes (two null
+;     pointers also compare equal when both lengths are 0).
+;   0 otherwise.
+;
+; Notes:
+;   Uses strncmp under the hood and short-circuits on length mismatch, so a
+;   length difference is detected without ever dereferencing the data.
 ; ----------------------------------------------------------------------------
 
 define i32 @weave_bytes_equal(ptr %a, i64 %a_len, ptr %b, i64 %b_len) {

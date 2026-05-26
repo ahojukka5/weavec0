@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Continuous integration for weavec0.
+#
+# Builds weavec0 from source and runs the test ladder on Linux and macOS
+# using the platform's stable LLVM toolchain. Should finish in well under
+# a minute per job — the test ladder is intentionally tiny.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: build & test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install LLVM toolchain (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm clang
+          echo "Tool versions:"
+          clang --version
+          llvm-as --version
+          llvm-link --version
+
+      - name: Install LLVM toolchain (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install llvm
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+
+      - name: Verify toolchain (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          clang --version
+          llvm-as --version
+          llvm-link --version
+
+      - name: Build & run test ladder
+        run: ./build.sh

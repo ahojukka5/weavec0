@@ -6,6 +6,13 @@
 (core-module
   (core-version 1)
   (decls
+    (extern puts
+      (params
+        (text ptr)
+      ) ;; params
+      (returns i32)
+    ) ;; extern
+
     (fn main
       (params)
       (returns i32)

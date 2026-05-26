@@ -1,16 +1,27 @@
+; SPDX-License-Identifier: Apache-2.0
 ; =============================================================================
-; Weave Stage 0 Bootstrap Compiler
 ; 00_prelude.ll
 ;
-; This file defines the shared LLVM IR conventions used by the hand-written
-; Stage 0 compiler.
+; Shared module-wide declarations for the hand-written Stage 0 compiler.
 ;
-; Stage 0 has one responsibility:
+; Responsibilities:
+;   - declare the target triple and data layout
+;   - state the integer / pointer / bool conventions used everywhere
+;   - declare the named struct types threaded through every module
+;     (%weave.Buffer, %weave.Source, %weave.Tokens, %weave.Parser,
+;     %weave.AstNode, %weave.Ast, %weave.CompileContext)
+;   - document, as comments, the numeric constants used as token, AST, and
+;     binary-operator kinds throughout the compiler
 ;
-;     input.wir -> output.ll
+; Boundary:
+;   No compiler logic lives here — only declarations and conventions. The
+;   build script (../build.sh: extract_module_prelude) concatenates the prefix
+;   of this file (everything before "Token kind constants") onto each module
+;   so the prelude declarations are visible without per-module duplication.
 ;
-; It does not assemble, link, optimize, expand packages, or implement the full
-; future Weave language. It is the first small bridge toward self-hosting.
+;   Stage 0 has one job: input.wir -> output.ll. It is the first small bridge
+;   toward self-hosting and is expected to mostly freeze once weavec1 is
+;   stable.
 ; =============================================================================
 
 ; ----------------------------------------------------------------------------
@@ -240,6 +251,9 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; AST_STORE_I32_STMT = 33
 ; AST_CAST_I32_TO_I64_EXPR = 34
 ; AST_NOT_BOOL_EXPR  = 35
+; AST_INTEGER_LITERAL_I64 = 36   ; distinct from AST_INTEGER_LITERAL (11) so
+                                 ; the emitter can pick the i64 operand type
+                                 ; for call-argument positions.
 ;
 ; Keep this list small. Stage 0 exists to cross the bootstrap gap, not to model
 ; the complete future Weave language.

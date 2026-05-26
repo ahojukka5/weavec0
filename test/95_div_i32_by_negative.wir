@@ -1,0 +1,22 @@
+; 95_div_i32_by_negative.wir
+; purpose: exercises div_i32 with both operands negative (signed sdiv contract).
+; verifies the emitter lowers div_i32 to `sdiv` and not to `udiv`.
+; expected runtime behavior: process exits with code 42 (-84 / -2).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (div_i32
+            (const_i32 -84)
+            (const_i32 -2)
+          ) ;; div_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

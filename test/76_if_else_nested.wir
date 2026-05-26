@@ -1,0 +1,45 @@
+; 76_if_else_nested.wir
+; purpose: nests an if inside the else-branch of an outer if.
+; verifies label allocation works for inner branches reached via the else path.
+; expected runtime behavior: process exits with code 42 (outer false, inner true).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (if
+          (condition
+            (gt_i32 (const_i32 1) (const_i32 5))
+          ) ;; condition
+          (then
+            (do
+              (return (const_i32 1))
+            ) ;; do
+          ) ;; then
+          (else
+            (do
+              (if
+                (condition
+                  (lt_i32 (const_i32 2) (const_i32 7))
+                ) ;; condition
+                (then
+                  (do
+                    (return (const_i32 42))
+                  ) ;; do
+                ) ;; then
+                (else
+                  (do
+                    (return (const_i32 3))
+                  ) ;; do
+                ) ;; else
+              ) ;; if
+            ) ;; do
+          ) ;; else
+        ) ;; if
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

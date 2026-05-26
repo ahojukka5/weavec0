@@ -1,0 +1,28 @@
+; 90_cast_i32_to_i64_in_let.wir
+; purpose: stores a cast_i32_to_i64 result into an i64 local.
+; verifies the local-type table dispatches the i64 store/load when the
+;   initialiser expression is a cast rather than a direct const_i64.
+; expected runtime behavior: process exits with code 42.
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (let widened i64
+          (cast_i32_to_i64
+            (const_i32 42)
+          ) ;; cast_i32_to_i64
+        ) ;; let
+
+        (return
+          (cast_i64_to_i32
+            (local_get widened)
+          ) ;; cast_i64_to_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

@@ -1,0 +1,21 @@
+; 67_const_i64_max.wir
+; purpose: covers the largest representable i64 literal (INT64_MAX).
+; verifies 9223372036854775807 parses and casts to i32 -1 by low-32-bit truncation.
+; expected runtime behavior: process exits with code 255 (low byte of 0xFFFFFFFF).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (cast_i64_to_i32
+            (const_i64 9223372036854775807)
+          ) ;; cast_i64_to_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

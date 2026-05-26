@@ -1,15 +1,38 @@
+; SPDX-License-Identifier: Apache-2.0
 ; =============================================================================
-; Weave Stage 0 Bootstrap Compiler
 ; 06_parser.ll
 ;
-; Minimal recursive-descent parser for the Stage 0 bootstrap subset.
+; Recursive-descent parser for the Stage 0 bootstrap WIR subset.
 ;
-; Responsibility:
+; Responsibilities:
+;   - drive a %weave.Parser cursor over the token stream produced by 04_lexer
+;   - parse `(core-module (core-version 1) (decls ...))` shape modules
+;   - parse `(fn name (params ...) (returns T) (do ...))` function decls
+;   - parse `(extern name ...)` extern decls (body is captured as a balanced
+;     paren range — the signature itself is recovered later via name-keyed
+;     lookup in the emitter)
+;   - parse the admitted statement set: do, let, set, if, while, return,
+;     return_void, store_*, call_void (as a statement)
+;   - parse the admitted expression set: const_i32, const_i64, const_string,
+;     const_string_ptr, const_null, const_bool / true / false, local_get,
+;     param_get, add_*, sub_*, mul_*, div_i32, mod_i32, cmp_*, and/or/not,
+;     ptr_add, load_*, call_*, cast_*
+;   - push resulting nodes onto the %weave.Ast via 05_ast helpers and return
+;     the index of the root program node
 ;
-;     token stream -> AST
+; Diagnostics:
+;   Failure returns i64 -1 (or i32 1 for status-only entry points). A small
+;   numeric error code is also recorded in @weave.parse_error_code so the
+;   driver can pick a specific diagnostic message:
+;     0  unspecified parse failure
+;     1  unknown operator (unrecognised identifier in operator position)
+;     2  invalid operator arity (wrong number of arguments)
 ;
-; The parser accepts the WIR/TIR bootstrap subset. It fails fast on unsupported
-; input. There is no recovery, no diagnostics framework, and no type checking.
+; Boundary:
+;   No semantic analysis, no type checking, no error recovery. The parser
+;   matches the shape and fails the whole compile on any deviation. New
+;   syntax is admitted only by adding a small, targeted handler and a
+;   corresponding test case to the ladder.
 ; =============================================================================
 
 @weave.parse_error_code = internal global i32 0
@@ -32,6 +55,16 @@ entry:
   ret void
 }
 
+; weave_parse_error_get
+;
+; Read the parser's last-set error code. The driver uses this immediately
+; after a failed weave_parse call to pick a specific diagnostic message
+; ("unknown operator" vs "invalid arity" vs the generic "parsing failed").
+;
+; Returns:
+;   0 - unspecified parse failure (or no error has occurred).
+;   1 - unknown operator.
+;   2 - invalid operator arity.
 define i32 @weave_parse_error_get() {
 entry:
   %code = load i32, ptr @weave.parse_error_code
@@ -125,12 +158,12 @@ entry:
   ret i64 %length
 }
 
-define i32 @weave_parser_current_value(ptr %parser) {
+define i64 @weave_parser_current_value(ptr %parser) {
 entry:
   %tokens = call ptr @weave_parser_tokens(ptr %parser)
   %index = call i64 @weave_parser_index(ptr %parser)
-  %value = call i32 @weave_token_value(ptr %tokens, i64 %index)
-  ret i32 %value
+  %value = call i64 @weave_token_value(ptr %tokens, i64 %index)
+  ret i64 %value
 }
 
 define void @weave_parser_advance(ptr %parser) {
@@ -768,7 +801,8 @@ parse_const_i32:
   br i1 %const_value_is_int, label %capture_const_i32, label %fail
 
 capture_const_i32:
-  %const_value = call i32 @weave_parser_current_value(ptr %parser)
+  %const_value_wide = call i64 @weave_parser_current_value(ptr %parser)
+  %const_value = trunc i64 %const_value_wide to i32
   call void @weave_parser_advance(ptr %parser)
   %const_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
   %const_close_failed = icmp ne i32 %const_close_status, 0
@@ -833,14 +867,17 @@ parse_const_i64:
   br i1 %const64_value_is_int, label %capture_const_i64, label %fail
 
 capture_const_i64:
-  %const64_value = call i32 @weave_parser_current_value(ptr %parser)
+  %const64_value = call i64 @weave_parser_current_value(ptr %parser)
   call void @weave_parser_advance(ptr %parser)
   %const64_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
   %const64_close_failed = icmp ne i32 %const64_close_status, 0
   br i1 %const64_close_failed, label %fail, label %make_const_i64
 
 make_const_i64:
-  %const64_node = call i64 @weave_ast_make_integer_literal(ptr %ast, i32 %const64_value)
+  ; Distinct from make_const_i32: this pushes AST kind 36 so downstream
+  ; type-classification can tell the literal is i64-wide. The full i64 value
+  ; is preserved in the AST `a` field.
+  %const64_node = call i64 @weave_ast_make_integer_literal_i64(ptr %ast, i64 %const64_value)
   ret i64 %const64_node
 
 parse_const_string:
@@ -2604,11 +2641,23 @@ fail:
 ; ----------------------------------------------------------------------------
 ; weave_parse
 ;
-; Public parser entry point.
+; Module entry point. Drive a fresh %weave.Parser over the supplied token
+; stream and produce AST nodes in `ast` representing the WIR program.
+;
+; Parameters:
+;   tokens - %weave.Tokens* populated by weave_lex.
+;   ast    - %weave.Ast* initialised via weave_ast_init.
 ;
 ; Returns:
-;   >= 0 : AST_PROGRAM node index
-;   -1   : parse failure
+;   >=0 : index of the AST_PROGRAM root node inside `ast`.
+;   -1  : parse failure. The driver should call weave_parse_error_get to
+;         pick the specific diagnostic message.
+;
+; Notes:
+;   The parser allocates its own cursor on the stack (`%weave.Parser`) and
+;   does not retain it. It also resets the global parse-error code via
+;   weave_parse_error_clear before doing any work, so a successful parse
+;   always leaves error_code at 0.
 ; ----------------------------------------------------------------------------
 
 define i64 @weave_parse(ptr %tokens, ptr %ast) {

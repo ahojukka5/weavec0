@@ -1,0 +1,30 @@
+; 85_string_empty.wir
+; purpose: feeds an empty string literal through const_string emission.
+; verifies the string-globals path handles zero-length content correctly.
+; expected runtime behavior: process exits with code 42 (prints a blank line).
+
+(core-module
+  (core-version 1)
+  (decls
+    (extern puts
+      (params
+        (text ptr)
+      ) ;; params
+      (returns i32)
+    ) ;; extern
+
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (print
+          (const_string "")
+        ) ;; print
+
+        (return
+          (const_i32 42)
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

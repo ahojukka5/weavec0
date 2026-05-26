@@ -1,0 +1,22 @@
+; 55_unknown_op_in_arg.wir
+; purpose: confirms the parser rejects identifiers it does not admit even when
+;   they appear in operator position inside a nested argument, not just at
+;   top-level statement position.
+; expected runtime behavior: compile fails with diagnostic "unknown operator".
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (frobnicate
+            (const_i32 42)
+          ) ;; frobnicate — not a WIR operator
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

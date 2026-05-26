@@ -1,0 +1,24 @@
+; 58_arity_mul_i64_too_many.wir
+; purpose: confirms the parser rejects mul_i64 with more than two operands.
+; expected runtime behavior: compile fails with diagnostic "arity".
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (cast_i64_to_i32
+            (mul_i64
+              (const_i64 6)
+              (const_i64 7)
+              (const_i64 2)
+            ) ;; mul_i64 — three operands instead of two
+          ) ;; cast_i64_to_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

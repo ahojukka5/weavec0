@@ -1,56 +1,85 @@
-# Weave Stage 0 Bootstrap Compiler
+# weavec0 — Weave Stage 0 Bootstrap Compiler
+
+[![ci](https://github.com/ahojukka5/weavec0/actions/workflows/ci.yml/badge.svg)](https://github.com/ahojukka5/weavec0/actions/workflows/ci.yml)
+
+> A tiny, hand-written LLVM-IR compiler whose only job is to compile the
+> first Weave compiler — written in Weave itself. After that, it
+> mostly freezes.
 
 ## Overview
 
-This directory contains the first bootstrap compiler for the Weave programming language.
+`weavec0` reads a small s-expression-style intermediate representation
+called **WIR** (`*.wir`) and emits human-readable **LLVM IR** (`*.ll`).
+The compiler itself is written directly in `.ll`, paired with a ~130-line
+C runtime. It compiles in well under a second and ships 75+ end-to-end
+test cases under [`test/`](test).
 
-The compiler is intentionally written directly in LLVM IR (`.ll`) together with a very small C runtime.
-
-This is not intended to become the final architecture of the Weave compiler.
-
-The purpose of this codebase is much narrower:
+This is *not* the final architecture of the Weave compiler. The purpose
+of this codebase is much narrower:
 
 ```text
 Create the smallest trustworthy bridge capable of compiling
 an early Weave compiler written in Weave itself.
 ```
 
-In other words:
+This project values **simplicity**, **auditability**, **explicit
+structure**, **minimal moving parts**, **deterministic behaviour**, and
+**tiny incremental milestones**. It deliberately avoids premature
+abstractions, optimisation, advanced typing, packages, beautiful
+diagnostics, and production compiler architecture — those belong to
+later compiler generations.
 
-```text
-hand-written LLVM IR -> first Weave compiler -> self-hosting
+---
+
+## Prerequisites
+
+`weavec0` builds with a standard LLVM toolchain:
+
+- `clang`, `llvm-as`, `llvm-link` — LLVM 14 or newer (opaque pointers).
+- `bash` 4 or newer.
+
+Installation hints:
+
+```sh
+# Debian / Ubuntu
+sudo apt-get install -y llvm clang
+
+# macOS (Homebrew)
+brew install llvm
+export PATH="$(brew --prefix llvm)/bin:$PATH"
 ```
 
-This project values:
+CI runs on `ubuntu-latest` and `macos-latest` against the package-manager
+LLVMs; both should track recent stable releases.
 
-- simplicity
-- auditability
-- explicit structure
-- minimal moving parts
-- deterministic behavior
-- tiny incremental milestones
+---
 
-It deliberately avoids:
+## Quick start
 
-- premature abstractions
-- large framework design
-- complicated optimization
-- rich type systems
-- modules/packages
-- advanced diagnostics
-- production compiler architecture
+```sh
+git clone https://github.com/ahojukka5/weavec0.git
+cd weavec0
+./build.sh
 
-The Stage 0 compiler exists only to make the first self-hosted compiler possible.
+# Inspect a tiny example and its emitted LLVM IR:
+cat test/02_return_42.wir
+cat test/02_return_42.expected.ll
 
-Once the first Weave-written compiler becomes stable, this Stage 0 compiler should largely freeze.
+# Compile a WIR file of your own:
+./weavec0 path/to/program.wir path/to/program.ll
+```
+
+The first run builds the `weavec0` binary from `src/*.ll` + `runtime.c`,
+then runs every case listed in [`test/manifest.txt`](test/manifest.txt).
+Each test compiles, assembles with `llvm-as`, builds with `clang`, runs,
+and is compared byte-for-byte against a checked-in golden `.ll` file.
 
 ---
 
 # Philosophy
 
-A common bootstrap failure mode is attempting to build the “real compiler” too early.
-
-This repository intentionally avoids that trap.
+A common bootstrap failure mode is attempting to build the "real
+compiler" too early. This repository intentionally avoids that trap.
 
 The goal is not:
 
@@ -64,10 +93,7 @@ The goal is:
 Build the smallest compiler capable of building the next compiler.
 ```
 
-This distinction matters.
-
-The Stage 0 compiler is a bridge.
-It is not the destination.
+The Stage 0 compiler is a bridge. It is not the destination.
 
 ---
 
@@ -304,69 +330,85 @@ The runtime is not intended to become a general-purpose runtime system.
 
 # Build
 
-The compiler is built using:
+The compiler is built and tested with one command:
 
 ```bash
 ./build.sh
 ```
 
-Internally this invokes `clang` on:
+The script:
 
-- linked bootstrap bitcode
-- `runtime.c`
+1. assembles each `src/NN_*.ll` module with `llvm-as`,
+2. links the bitcodes with `llvm-link`,
+3. produces the `weavec0` executable by clang-linking the linked bitcode
+   with `runtime.c`,
+4. runs every case listed in `test/manifest.txt` (the test ladder).
 
-Result:
+The ladder enumeration lives in `test/manifest.txt`, one case per line:
 
 ```text
-weavec0
+pass <name> <expected_exit>           # positive: compiles & runs successfully
+fail <name> <expected_diagnostic>     # negative: weavec0 must error out cleanly
 ```
+
+Flags:
+
+- `--regen-goldens` — when a `.expected.ll` differs from the generated
+  output (or is missing), overwrite it instead of failing. Useful after
+  intentional output-format changes; review the resulting `git diff`
+  before committing.
+
+The script is intentionally bash, not CMake, matching the convention used
+by the rest of the Weave compiler chain.
 
 ---
 
-# Stage Naming
+# Conventions
 
-The naming convention is important.
+Source style for the `.ll` modules follows a small, consistent set of
+documentation rules described in [`docs/source-style.md`](docs/source-style.md).
 
-## `weavec0`
+In short: every module file opens with a `Responsibilities:` block, every
+cross-module entry-point function carries a `Parameters:` / `Returns:`
+docstring, and `Notes:` blocks capture non-obvious design tradeoffs.
+
+---
+
+# Where weavec0 fits in the chain
+
+`weavec0` is the **first stage** in a planned multi-stage Weave compiler
+chain. The later stages live in their own repositories and are not required
+to build, use, or contribute to this project.
+
+## `weavec0` — this repository
 
 The hand-written LLVM IR bootstrap compiler.
 
 Characteristics:
 
 - implemented manually in LLVM IR
-- tiny bootstrap subset
+- tiny bootstrap subset (WIR -> LLVM IR)
 - intentionally primitive
 - bridge compiler only
 
-As long as the compiler is hand-written LLVM IR:
+As long as the compiler is hand-written LLVM IR, it is still `weavec0`,
+even if features are added.
+
+## `weavec1` — first self-hosting milestone
+
+The first compiler written in the Weave language itself, produced by
+bootstrapping with `weavec0`:
 
 ```text
-it is still weavec0
+weavec0 -> compiles weavec1 source -> weavec1 binary
 ```
 
-Even if features are added.
+`weavec1` is a separate project and lives in its own repository.
 
----
+## `weavec2` — self-sustaining
 
-## `weavec1`
-
-The first compiler written in the Weave language itself.
-
-Produced by:
-
-```text
-weavec0 -> compiles src-bootstrap/*.weave -> weavec1
-```
-
-This is the first true self-hosting milestone.
-
----
-
-## `weavec2`
-
-A compiler compiled by `weavec1`.
-
-At this point the bootstrap chain becomes self-sustaining.
+A compiler compiled by `weavec1`. At this point the bootstrap chain
+becomes self-sustaining and the role of `weavec0` is finished.
 
 ---
 
@@ -415,41 +457,69 @@ Stage 0 should eventually stabilize and mostly freeze.
 
 # Test Ladder
 
-The bootstrap compiler evolves through a curated test ladder.
+The bootstrap compiler evolves through a curated test ladder enumerated by
+[`test/manifest.txt`](test/manifest.txt). At time of writing the ladder
+runs **100 cases** (90 positive + 10 negative).
 
-Each test has two fixtures:
+Each positive case has two fixtures:
 
-- `test/<name>.wir`
-- `test/<name>.expected.ll`
+- `test/<name>.wir` — the WIR input,
+- `test/<name>.expected.ll` — the golden LLVM IR.
 
-The ladder compiles each positive `.wir` file with `weavec0` and checks the
-result in several small steps:
+A `.expected.ll` is a checked-in *golden* — the exact LLVM IR `weavec0`
+produces today for the corresponding `.wir`. Goldens are not written by
+hand; they are regenerated with `./build.sh --regen-goldens` and
+reviewed via `git diff` before commit.
 
-1. generated LLVM matches golden fixtures
-2. generated LLVM is accepted by `llvm-as`
-3. generated LLVM can be compiled by `clang`
-4. executable exit code matches expected behavior
-5. selected invalid WIR inputs fail cleanly
+Per case the ladder checks, in this order:
 
-Example progression:
+1. `weavec0` compiles `.wir` → `.ll` without error,
+2. the generated LLVM matches the golden fixture verbatim,
+3. `llvm-as` accepts the generated LLVM,
+4. `clang` builds an executable from it,
+5. the executable's exit code matches the declared value.
 
-```text
-01_return_constant
-02_return_42
-03_add
-04_one_arg_function
-05_let_local
-06_set_local
-07_if
-08_while
-09_two_arg_function
-10_string_literal
-```
+Negative cases (`fail` rows in the manifest) instead check that `weavec0`
+exits non-zero, writes no `.ll`, and emits a diagnostic that contains a
+specified substring.
 
-Each new feature is admitted only after:
+Numeric prefixes are conventional:
 
-- a minimal test exists
-- the previous ladder remains green
+- `01`–`49` — original ladder (constants, arithmetic, control flow, calls,
+  pointers, externs, strings).
+- `50`–`59` — compile-fail cases (parse errors, unknown operators, arity,
+  unknown extern).
+- `60`+ — later additions slotted into theme gaps (no-arg paren shape,
+  i64 chaining, nested control flow, edge-value constants, mixed-type
+  locals, ...).
+
+Each new test must exercise behaviour the parser and emitter already admit.
+Do not extend the language to make a test pass — admit a feature only when
+a deliberate bootstrap milestone calls for it (see `Bootstrap Strategy`).
+
+---
+
+# Examples
+
+There is no separate `examples/` directory: every file under [`test/`](test)
+is a runnable, end-to-end example. Suggested entry points if you are
+reading the code for the first time:
+
+- [`test/01_return_constant.wir`](test/01_return_constant.wir) — the
+  smallest possible WIR program.
+- [`test/07_if.wir`](test/07_if.wir) — branching, with the matching
+  [`test/07_if.expected.ll`](test/07_if.expected.ll) showing how `if`
+  lowers to `br`.
+- [`test/08_while.wir`](test/08_while.wir) — loops and mutable locals.
+- [`test/16_extern_malloc_free.wir`](test/16_extern_malloc_free.wir) —
+  declaring and calling C externs.
+- [`test/86_const_i64_call_arg.wir`](test/86_const_i64_call_arg.wir) —
+  the regression test for the i64 call-argument bug; the easiest way to
+  see how a typed literal flows through the pipeline.
+
+Run `./weavec0 test/<name>.wir /tmp/out.ll` to produce the LLVM IR
+yourself, then `clang /tmp/out.ll -o /tmp/run && /tmp/run; echo $?` to
+see it execute.
 
 ---
 
@@ -483,11 +553,9 @@ Examples:
 
 ## Phase 3
 
-Write the first Weave compiler:
-
-```text
-src-bootstrap/
-```
+Write the first Weave compiler (`weavec1`) in Weave itself. This work
+happens in a separate repository — `weavec0`'s job is only to compile
+it once.
 
 ---
 
@@ -561,3 +629,60 @@ stable
 ```
 
 The real compiler comes later.
+
+---
+
+# Known Limitations
+
+These are intentional scope choices and one rough edge — not bugs.
+Documented so users are not surprised.
+
+- **i32-default surface.** The language `weavec0` admits is essentially
+  i32. `main` always returns i32. i64 only exists through explicit
+  operators (`const_i64`, `add_i64`, `cast_i64_to_i32`, ...). Anything
+  outside this is out of scope for Stage 0.
+
+- **Tiny extern subset.** Only `puts`, `malloc`, and `free` are
+  recognised. Declaring any other extern in WIR is a hard error
+  (`weavec0: extern not supported`). Expanding the set means adding a
+  name+signature entry to `weave_emit_extern_decl` in
+  [`src/07_emit_llvm.ll`](src/07_emit_llvm.ll).
+
+- **Blunt diagnostics.** Errors are one of `parsing failed`,
+  `unknown operator`, `invalid arity`, or `extern not supported`,
+  with no source location. A real diagnostics framework belongs in a
+  later compiler stage.
+
+- **Large i64 literals materialise through a temp.** Values that do
+  not round-trip through i32 emit `%tN = add i64 0, <literal>` and
+  use the resulting temp as the operand. LLVM's instcombine folds the
+  add-zero at `-O1` and above; at `-O0` the extra instruction stays.
+  See the `integer_i64` label in
+  [`src/07_emit_llvm.ll`](src/07_emit_llvm.ll).
+
+- **Hardcoded target triple in the prelude.** `src/00_prelude.ll`
+  carries `target triple = "x86_64-unknown-linux-gnu"`. Emitted
+  `.ll` files for user programs carry no triple at all; the
+  `-Wno-override-module` flag in `build.sh` silences the resulting
+  clang warning. Works on any host the LLVM toolchain supports.
+
+- **`const_string_ptr` only works as a direct call argument.** Using
+  it as the initialiser of a `let` (for example
+  `(let g ptr (const_string_ptr "hi"))`) fails with `error: LLVM
+  emit failed` because the emitter only has a special-cased path for
+  the call-argument position. Test
+  [`test/29_const_string_ptr.wir`](test/29_const_string_ptr.wir)
+  shows the supported shape.
+
+---
+
+# License
+
+Licensed under the Apache License, Version 2.0. See [`LICENSE`](LICENSE)
+and [`NOTICE`](NOTICE).
+
+# Contributing
+
+Pull requests and issues are welcome. The merge bar is intentionally
+narrow — please read [`CONTRIBUTING.md`](CONTRIBUTING.md) and the
+**Bootstrap Strategy** section above before opening a PR.

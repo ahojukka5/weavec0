@@ -1,0 +1,39 @@
+; 78_param_get_used_thrice.wir
+; purpose: references the same param three times in a single expression.
+; verifies param_get emits a fresh operand each time it is referenced.
+; expected runtime behavior: process exits with code 42 (14 + 14 + 14).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn triple
+      (params
+        (x i32)
+      ) ;; params
+      (returns i32)
+      (do
+        (return
+          (add_i32
+            (add_i32
+              (param_get x)
+              (param_get x)
+            ) ;; add_i32
+            (param_get x)
+          ) ;; add_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (call_i32 triple
+            (const_i32 14)
+          ) ;; call_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

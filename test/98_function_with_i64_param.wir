@@ -1,0 +1,39 @@
+; 98_function_with_i64_param.wir
+; purpose: declares a function whose parameter is i64 and exercises it through
+;   a calling main. None of the earlier function tests cover an i64-typed
+;   parameter — they all use i32 or ptr.
+; verifies param_get against an i64 parameter type, plus the i64 calling
+;   convention end-to-end through call_i64.
+; expected runtime behavior: process exits with code 42.
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn shift_high
+      (params (x i64))
+      (returns i64)
+      (do
+        (return
+          (add_i64
+            (param_get x)
+            (const_i64 2)
+          ) ;; add_i64
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (cast_i64_to_i32
+            (call_i64 shift_high
+              (const_i64 40)
+            ) ;; call_i64
+          ) ;; cast_i64_to_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

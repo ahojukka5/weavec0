@@ -1,0 +1,37 @@
+; 73_bool_mixed_and_or.wir
+; purpose: mixes and_bool and or_bool in a single nested expression.
+; verifies the emitter does not reorder operands or collapse the operator chain.
+; expected runtime behavior: process exits with code 42.
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (if
+          (condition
+            (and_bool
+              (or_bool
+                (lt_i32 (const_i32 7) (const_i32 3))
+                (lt_i32 (const_i32 1) (const_i32 2))
+              ) ;; or_bool
+              (gt_i32 (const_i32 8) (const_i32 4))
+            ) ;; and_bool
+          ) ;; condition
+          (then
+            (do
+              (return (const_i32 42))
+            ) ;; do
+          ) ;; then
+          (else
+            (do
+              (return (const_i32 0))
+            ) ;; do
+          ) ;; else
+        ) ;; if
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

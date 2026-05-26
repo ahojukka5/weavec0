@@ -1,0 +1,68 @@
+; 84_if_in_while_body.wir
+; purpose: places an if/else inside a while body to exercise mixed label generation.
+; verifies inner if labels coexist with the surrounding while labels.
+; expected runtime behavior: process exits with code 42 (sum of squares-ish).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (let i i32 (const_i32 0)) ;; let
+        (let total i32 (const_i32 0)) ;; let
+
+        (while
+          (condition
+            (lt_i32
+              (local_get i)
+              (const_i32 10)
+            ) ;; lt_i32
+          ) ;; condition
+          (do
+            (if
+              (condition
+                (lt_i32
+                  (local_get i)
+                  (const_i32 7)
+                ) ;; lt_i32
+              ) ;; condition
+              (then
+                (do
+                  (set total
+                    (add_i32
+                      (local_get total)
+                      (const_i32 6)
+                    ) ;; add_i32
+                  ) ;; set
+                ) ;; do
+              ) ;; then
+              (else
+                (do
+                  (set total
+                    (add_i32
+                      (local_get total)
+                      (const_i32 0)
+                    ) ;; add_i32
+                  ) ;; set
+                ) ;; do
+              ) ;; else
+            ) ;; if
+
+            (set i
+              (add_i32
+                (local_get i)
+                (const_i32 1)
+              ) ;; add_i32
+            ) ;; set
+          ) ;; do
+        ) ;; while
+
+        (return
+          (local_get total)
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

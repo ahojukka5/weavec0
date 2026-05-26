@@ -1,0 +1,44 @@
+; 70_comparisons_chained_i32.wir
+; purpose: feeds the result of one i32 comparison into another comparison.
+; verifies bool results from icmp can be reused as i32 (via cast through if-then).
+; expected runtime behavior: process exits with code 42.
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (if
+          (condition
+            (and_bool
+              (lt_i32
+                (const_i32 1)
+                (const_i32 2)
+              ) ;; lt_i32
+              (gt_i32
+                (const_i32 5)
+                (const_i32 3)
+              ) ;; gt_i32
+            ) ;; and_bool
+          ) ;; condition
+          (then
+            (do
+              (return
+                (const_i32 42)
+              ) ;; return
+            ) ;; do
+          ) ;; then
+          (else
+            (do
+              (return
+                (const_i32 0)
+              ) ;; return
+            ) ;; do
+          ) ;; else
+        ) ;; if
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

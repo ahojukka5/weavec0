@@ -1,0 +1,15 @@
+; 56_truncated_module.wir
+; purpose: confirms an incomplete WIR input (missing closing parens) is rejected.
+; expected runtime behavior: compile fails with diagnostic "parsing failed".
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (const_i32 42)
+        ) ;; return
+      ;; missing close: do, fn, decls, core-module

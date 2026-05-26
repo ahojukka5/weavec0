@@ -1,0 +1,24 @@
+; 92_negative_i64_arithmetic.wir
+; purpose: verifies negative i64 literals participate in add_i64 / mul_i64
+;   correctly (mirroring the i32 negative-literal test at 49 but for i64).
+; expected runtime behavior: process exits with code 42 (-6 * -7 = 42).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (cast_i64_to_i32
+            (mul_i64
+              (const_i64 -6)
+              (const_i64 -7)
+            ) ;; mul_i64
+          ) ;; cast_i64_to_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

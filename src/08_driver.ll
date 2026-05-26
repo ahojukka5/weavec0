@@ -1,15 +1,23 @@
+; SPDX-License-Identifier: Apache-2.0
 ; =============================================================================
-; Weave Stage 0 Bootstrap Compiler
 ; 08_driver.ll
 ;
-; The driver connects the Stage 0 compiler pipeline.
+; Pipeline orchestration for the Stage 0 bootstrap compiler.
 ;
-; Responsibility:
+; Responsibilities:
+;   - read the input source file via weave_rt_read_file (08 owns the buffer)
+;   - initialise a %weave.Source, a %weave.Tokens, a %weave.Ast, and a
+;     %weave.Buffer for the emitted text
+;   - drive the pipeline: lex -> parse -> emit, propagating failures
+;   - select an error message per failure kind and route it to stderr via
+;     weave_driver_print_error
+;   - on success, write the emitted buffer to the output path; on any
+;     failure, free everything cleanly and return non-zero without writing
 ;
-;     input path -> source -> tokens -> AST -> LLVM buffer -> output path
-;
-; This file contains orchestration only. Lexer, parser, AST, and emitter logic
-; belong in their own files.
+; Boundary:
+;   The driver contains no syntax knowledge. It only wires modules
+;   together. Diagnostic strings live in 01_runtime_bindings.ll; the
+;   pipeline stages own all interesting logic.
 ; =============================================================================
 
 ; ----------------------------------------------------------------------------
@@ -60,6 +68,16 @@ done:
 ; later. The bridge must first be crossable.
 
 
+; weave_driver_print_error
+;
+; Print a null-terminated diagnostic message to stderr via fprintf. Used by
+; every error path in the driver. The message string is expected to include
+; its own trailing newline.
+;
+; Parameters:
+;   message - pointer to a null-terminated cstr (typically one of the
+;             @weave.str.err_* constants from 01_runtime_bindings.ll, or a
+;             matching constant from another module).
 define void @weave_driver_print_error(ptr %message) {
 entry:
   %stderr = call ptr @weave_rt_stderr()
@@ -70,15 +88,24 @@ entry:
 ; ----------------------------------------------------------------------------
 ; weave_compile_file
 ;
-; Compile one Weave source file into one LLVM IR output file.
+; End-to-end pipeline driver: read source from disk, lex, parse, emit, and
+; write the result. This is the function `main` calls and is the canonical
+; meaning of "running weavec0 on one file".
 ;
-; Interface:
-;
-;     weavec0 input.wir output.ll
+; Parameters:
+;   input_path  - null-terminated path to the .wir source file.
+;   output_path - null-terminated path where the .ll file will be written.
 ;
 ; Returns:
-;   0 on success
-;   1 on failure
+;   0 on success; output_path contains the emitted LLVM IR.
+;   1 on any failure (null paths, read error, lex/parse/emit error, write
+;     error). On failure no output file is written and an error message
+;     has already been printed to stderr.
+;
+; Notes:
+;   On every error path the driver tears down whatever resources it managed
+;   to allocate before failing — source bytes, token stream, AST array,
+;   output buffer — so callers do not need to know about partial state.
 ; ----------------------------------------------------------------------------
 
 
@@ -216,16 +243,22 @@ fail:
 ; ----------------------------------------------------------------------------
 ; weave_compile_buffer_to_buffer
 ;
-; In-memory compilation entry point used later by tests and self-host smoke
-; checks.
+; In-memory variant of weave_compile_file. Lexes/parses/emits a source
+; buffer the caller already holds and writes the result into a Buffer the
+; caller already holds. Useful for tests and self-host smoke checks where
+; round-tripping through the filesystem adds nothing.
 ;
-; The caller provides a source buffer and receives emitted LLVM text in `output`.
-;
-; This avoids file IO when testing the internal compiler pipeline.
+; Parameters:
+;   source_data - pointer to source bytes (need not be null-terminated).
+;   source_len  - byte length of the source.
+;   output      - %weave.Buffer* initialised via weave_buffer_init. The
+;                 caller owns it; on success it contains the emitted IR.
 ;
 ; Returns:
-;   0 on success
-;   1 on failure
+;   0 on success.
+;   1 on failure (null args, lex/parse/emit error). Unlike
+;     weave_compile_file this path does NOT print to stderr — callers in
+;     test contexts can drive their own diagnostics.
 ; ----------------------------------------------------------------------------
 
 

@@ -1,0 +1,24 @@
+; 54_unknown_extern.wir
+; purpose: confirms Stage 0 rejects externs outside the admitted C runtime subset.
+; verifies the emitter fails with a clear diagnostic instead of producing broken IR.
+
+(core-module
+  (core-version 1)
+  (decls
+    (extern strlen
+      (params
+        (s ptr)
+      ) ;; params
+      (returns i64)
+    ) ;; extern
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (const_i32 0)
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

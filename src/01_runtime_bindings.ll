@@ -1,11 +1,23 @@
+; SPDX-License-Identifier: Apache-2.0
 ; =============================================================================
-; Weave Stage 0 Bootstrap Compiler
 ; 01_runtime_bindings.ll
 ;
-; External declarations for the tiny C runtime and the small subset of libc used
+; External declarations for the tiny C runtime and the small libc subset used
 ; by the hand-written Stage 0 compiler.
 ;
-; This file contains declarations only. Compiler logic belongs in later files.
+; Responsibilities:
+;   - declare libc functions used directly (malloc, free, memcpy, strncmp,
+;     fopen, fwrite, fprintf, exit, ...)
+;   - declare the bespoke runtime helpers implemented in runtime.c
+;     (weave_rt_read_file, weave_rt_write_file, weave_rt_stderr, ...)
+;   - define a small set of private cstr constants for compiler diagnostics
+;     (usage, err_lex, err_parse, err_emit, ...) and a tiny accessor function
+;     per cstr so other modules don't need getelementptr
+;
+; Boundary:
+;   No compiler logic. If a function understands tokens, AST nodes, or WIR
+;   syntax it belongs in a later module, not here. Runtime helpers in
+;   runtime.c likewise must not know anything about Weave.
 ; =============================================================================
 
 ; ----------------------------------------------------------------------------
@@ -67,6 +79,10 @@ declare ptr @strchr(ptr %s, i32 %ch)
 ; Convert a decimal byte string to an integer.
 ; Used only for bootstrap input parsing where the syntax is intentionally tiny.
 declare i32 @atoi(ptr %s)
+
+; Wider conversion. Used by the lexer for const_i64 literal values so the i64
+; surface (constants up to INT64_MAX) survives without silent truncation.
+declare i64 @atoll(ptr %s)
 
 ; ----------------------------------------------------------------------------
 ; File IO

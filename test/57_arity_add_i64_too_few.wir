@@ -1,0 +1,22 @@
+; 57_arity_add_i64_too_few.wir
+; purpose: confirms the parser rejects add_i64 with fewer than two operands.
+; expected runtime behavior: compile fails with diagnostic "arity".
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (cast_i64_to_i32
+            (add_i64
+              (const_i64 42)
+            ) ;; add_i64 — one operand instead of two
+          ) ;; cast_i64_to_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

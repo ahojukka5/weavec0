@@ -1,0 +1,21 @@
+; 66_const_i64_large_negative.wir
+; purpose: covers a near-minimum i64 literal (INT64_MIN + 1).
+; verifies large negative i64 values parse and cast to i32 by low-32-bit truncation.
+; expected runtime behavior: process exits with code 1 (low byte of 0x8000000000000001).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (cast_i64_to_i32
+            (const_i64 -9223372036854775807)
+          ) ;; cast_i64_to_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

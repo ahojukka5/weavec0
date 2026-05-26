@@ -1,0 +1,28 @@
+; 59_arity_lt_i64_too_few.wir
+; purpose: confirms the parser rejects lt_i64 with a single operand.
+; expected runtime behavior: compile fails with diagnostic "arity".
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (if
+          (condition
+            (lt_i64
+              (const_i64 1)
+            ) ;; lt_i64 — one operand instead of two
+          ) ;; condition
+          (then
+            (do (return (const_i32 42)))
+          ) ;; then
+          (else
+            (do (return (const_i32 0)))
+          ) ;; else
+        ) ;; if
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

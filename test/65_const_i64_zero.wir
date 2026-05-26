@@ -1,0 +1,21 @@
+; 65_const_i64_zero.wir
+; purpose: confirms const_i64 0 lowers and casts cleanly to i32 zero.
+; verifies the i64 literal path has no special-case for zero.
+; expected runtime behavior: process exits with code 0.
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (cast_i64_to_i32
+            (const_i64 0)
+          ) ;; cast_i64_to_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

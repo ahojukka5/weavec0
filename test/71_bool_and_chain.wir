@@ -1,0 +1,37 @@
+; 71_bool_and_chain.wir
+; purpose: chains and_bool three deep to confirm associativity at emission.
+; verifies repeated `and i1` produces the expected nested temp sequence.
+; expected runtime behavior: process exits with code 42 (all comparisons true).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (if
+          (condition
+            (and_bool
+              (and_bool
+                (lt_i32 (const_i32 1) (const_i32 2))
+                (lt_i32 (const_i32 2) (const_i32 3))
+              ) ;; and_bool
+              (lt_i32 (const_i32 3) (const_i32 4))
+            ) ;; and_bool
+          ) ;; condition
+          (then
+            (do
+              (return (const_i32 42))
+            ) ;; do
+          ) ;; then
+          (else
+            (do
+              (return (const_i32 0))
+            ) ;; do
+          ) ;; else
+        ) ;; if
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

@@ -1,0 +1,41 @@
+; 80_local_mutation_sequence.wir
+; purpose: assigns then re-assigns the same local multiple times before reading it.
+; verifies `set` always writes through the alloca, not into a stale temp.
+; expected runtime behavior: process exits with code 42 (final assignment wins).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (let acc i32 (const_i32 1)) ;; let
+
+        (set acc (const_i32 7)) ;; set
+        (set acc
+          (add_i32
+            (local_get acc)
+            (const_i32 5)
+          ) ;; add_i32
+        ) ;; set
+        (set acc
+          (mul_i32
+            (local_get acc)
+            (const_i32 3)
+          ) ;; mul_i32
+        ) ;; set
+        (set acc
+          (add_i32
+            (local_get acc)
+            (const_i32 6)
+          ) ;; add_i32
+        ) ;; set
+
+        (return
+          (local_get acc)
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

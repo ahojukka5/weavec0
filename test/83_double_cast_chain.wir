@@ -1,0 +1,26 @@
+; 83_double_cast_chain.wir
+; purpose: casts i32 to i64 and back to i32 around an arithmetic step.
+; verifies cast_i32_to_i64 and cast_i64_to_i32 round-trip correctly.
+; expected runtime behavior: process exits with code 42 (sign-preserving for small positive value).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (cast_i64_to_i32
+            (mul_i64
+              (cast_i32_to_i64
+                (const_i32 6)
+              ) ;; cast_i32_to_i64
+              (const_i64 7)
+            ) ;; mul_i64
+          ) ;; cast_i64_to_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

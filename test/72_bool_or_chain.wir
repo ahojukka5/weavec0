@@ -1,0 +1,37 @@
+; 72_bool_or_chain.wir
+; purpose: chains or_bool three deep so a single true result short-circuits.
+; verifies repeated `or i1` produces the expected nested temp sequence.
+; expected runtime behavior: process exits with code 42 (last operand true).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (if
+          (condition
+            (or_bool
+              (or_bool
+                (lt_i32 (const_i32 5) (const_i32 2))
+                (lt_i32 (const_i32 6) (const_i32 1))
+              ) ;; or_bool
+              (lt_i32 (const_i32 1) (const_i32 99))
+            ) ;; or_bool
+          ) ;; condition
+          (then
+            (do
+              (return (const_i32 42))
+            ) ;; do
+          ) ;; then
+          (else
+            (do
+              (return (const_i32 0))
+            ) ;; do
+          ) ;; else
+        ) ;; if
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

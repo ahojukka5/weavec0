@@ -1,0 +1,7 @@
+weavec0 — Weave Stage 0 Bootstrap Compiler
+Copyright 2026 Jukka Aho
+
+This product includes software developed as the hand-written LLVM IR
+bootstrap stage for the Weave programming language.
+
+Upstream:  https://github.com/ahojukka5/weavec0

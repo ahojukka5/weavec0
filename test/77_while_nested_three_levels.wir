@@ -1,0 +1,60 @@
+; 77_while_nested_three_levels.wir
+; purpose: nests three while loops to stress label allocation under deeper nesting.
+; verifies inner/middle/outer back-edges remain structurally distinct.
+; expected runtime behavior: process exits with code 42 (2 * 3 * 7 = 42).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (let outer i32 (const_i32 0)) ;; let
+        (let total i32 (const_i32 0)) ;; let
+
+        (while
+          (condition
+            (lt_i32 (local_get outer) (const_i32 2))
+          ) ;; condition
+          (do
+            (let middle i32 (const_i32 0)) ;; let
+
+            (while
+              (condition
+                (lt_i32 (local_get middle) (const_i32 3))
+              ) ;; condition
+              (do
+                (let inner i32 (const_i32 0)) ;; let
+
+                (while
+                  (condition
+                    (lt_i32 (local_get inner) (const_i32 7))
+                  ) ;; condition
+                  (do
+                    (set total
+                      (add_i32 (local_get total) (const_i32 1))
+                    ) ;; set
+                    (set inner
+                      (add_i32 (local_get inner) (const_i32 1))
+                    ) ;; set
+                  ) ;; do
+                ) ;; while
+
+                (set middle
+                  (add_i32 (local_get middle) (const_i32 1))
+                ) ;; set
+              ) ;; do
+            ) ;; while
+
+            (set outer
+              (add_i32 (local_get outer) (const_i32 1))
+            ) ;; set
+          ) ;; do
+        ) ;; while
+
+        (return (local_get total))
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

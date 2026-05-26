@@ -1,0 +1,67 @@
+; 79_multiple_let_mixed_types.wir
+; purpose: declares i32, i64, and ptr locals in the same scope and reads them all back.
+; verifies the local table dispatches store/load per declared type.
+; expected runtime behavior: process exits with code 42 (10 + 20 + 12).
+
+(core-module
+  (core-version 1)
+  (decls
+    (extern malloc
+      (params
+        (size i64)
+      ) ;; params
+      (returns ptr)
+    ) ;; extern
+    (extern free
+      (params
+        (p ptr)
+      ) ;; params
+      (returns void)
+    ) ;; extern
+
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (let a i32 (const_i32 10)) ;; let
+        (let b i64 (const_i64 20)) ;; let
+        (let p ptr (call_ptr malloc (const_i64 8))) ;; let
+
+        (if
+          (condition
+            (eq_ptr (local_get p) (const_null))
+          ) ;; condition
+          (then
+            (do (return (const_i32 0)))
+          ) ;; then
+          (else
+            (do)
+          ) ;; else
+        ) ;; if
+
+        (store_i32
+          (local_get p)
+          (const_i32 12)
+        ) ;; store_i32
+
+        (let c i32
+          (load_i32 (local_get p))
+        ) ;; let
+
+        (call_void free
+          (local_get p)
+        ) ;; call_void
+
+        (return
+          (add_i32
+            (add_i32
+              (local_get a)
+              (cast_i64_to_i32 (local_get b))
+            ) ;; add_i32
+            (local_get c)
+          ) ;; add_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

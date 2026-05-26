@@ -1,0 +1,49 @@
+; 91_store_i32_load_i32.wir
+; purpose: round-trips an i32 value through explicit store_i32 / load_i32 ops
+;   on a heap-allocated buffer.
+; verifies the typed i32 memory path independent of locals (which use alloca i32).
+; expected runtime behavior: process exits with code 42 (round-trip preserves value).
+
+(core-module
+  (core-version 1)
+  (decls
+    (extern malloc
+      (params (size i64))
+      (returns ptr)
+    ) ;; extern
+    (extern free
+      (params (p ptr))
+      (returns void)
+    ) ;; extern
+
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (let p ptr
+          (call_ptr malloc (const_i64 4))
+        ) ;; let
+
+        (if
+          (condition
+            (eq_ptr (local_get p) (const_null))
+          ) ;; condition
+          (then
+            (do (return (const_i32 0)))
+          ) ;; then
+          (else (do)) ;; else
+        ) ;; if
+
+        (store_i32 (local_get p) (const_i32 42)) ;; store_i32
+
+        (let v i32
+          (load_i32 (local_get p))
+        ) ;; let
+
+        (call_void free (local_get p)) ;; call_void
+
+        (return (local_get v))
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

@@ -1,0 +1,44 @@
+; 87_return_in_while_body.wir
+; purpose: exercises an early return out of a while loop body.
+; verifies the emitter does not require a fall-through after a return inside
+;   a structured loop — the while back-edge is still well-formed.
+; expected runtime behavior: process exits with code 42 (returned on iteration where i == 5).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (let i i32 (const_i32 0)) ;; let
+
+        (while
+          (condition
+            (lt_i32 (local_get i) (const_i32 100))
+          ) ;; condition
+          (do
+            (if
+              (condition
+                (eq_i32 (local_get i) (const_i32 5))
+              ) ;; condition
+              (then
+                (do
+                  (return (const_i32 42))
+                ) ;; do
+              ) ;; then
+              (else
+                (do)
+              ) ;; else
+            ) ;; if
+            (set i
+              (add_i32 (local_get i) (const_i32 1))
+            ) ;; set
+          ) ;; do
+        ) ;; while
+
+        (return (const_i32 0))
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

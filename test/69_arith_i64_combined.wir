@@ -1,0 +1,30 @@
+; 69_arith_i64_combined.wir
+; purpose: combines add_i64, sub_i64, and mul_i64 in one expression tree.
+; verifies the binary-op dispatch chain handles all three i64 arithmetic ops in sequence.
+; expected runtime behavior: process exits with code 42 ((10 * 5) - (20 - 12) = 42).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (cast_i64_to_i32
+            (sub_i64
+              (mul_i64
+                (const_i64 10)
+                (const_i64 5)
+              ) ;; mul_i64
+              (sub_i64
+                (const_i64 20)
+                (const_i64 12)
+              ) ;; sub_i64
+            ) ;; sub_i64
+          ) ;; cast_i64_to_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

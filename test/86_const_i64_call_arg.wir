@@ -1,0 +1,57 @@
+; 86_const_i64_call_arg.wir
+; purpose: regression-locks the fix for const_i64 mis-typed as i32 in call args.
+; verifies (const_i64 N) appearing in a call argument emits `i64 N`, matching
+;   the extern's declared signature. The bug previously emitted `i32 N`, which
+;   `llvm-as` quietly accepted but disagreed with the extern declaration.
+; expected runtime behavior: process exits with code 42 (malloc returns non-null,
+;   we free and return 42).
+
+(core-module
+  (core-version 1)
+  (decls
+    (extern malloc
+      (params
+        (size i64)
+      ) ;; params
+      (returns ptr)
+    ) ;; extern
+    (extern free
+      (params
+        (p ptr)
+      ) ;; params
+      (returns void)
+    ) ;; extern
+
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (let p ptr
+          (call_ptr malloc
+            (const_i64 24)
+          ) ;; call_ptr — argument MUST emit as `i64 24`, not `i32 24`.
+        ) ;; let
+
+        (if
+          (condition
+            (eq_ptr (local_get p) (const_null))
+          ) ;; condition
+          (then
+            (do (return (const_i32 0)))
+          ) ;; then
+          (else
+            (do)
+          ) ;; else
+        ) ;; if
+
+        (call_void free
+          (local_get p)
+        ) ;; call_void
+
+        (return
+          (const_i32 42)
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

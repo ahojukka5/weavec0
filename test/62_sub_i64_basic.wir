@@ -1,0 +1,24 @@
+; 62_sub_i64_basic.wir
+; purpose: exercises sub_i64 as the top-level computation in a return.
+; verifies signed 64-bit subtraction lowers through cast_i64_to_i32.
+; expected runtime behavior: process exits with code 42 (100 - 58).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (cast_i64_to_i32
+            (sub_i64
+              (const_i64 100)
+              (const_i64 58)
+            ) ;; sub_i64
+          ) ;; cast_i64_to_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

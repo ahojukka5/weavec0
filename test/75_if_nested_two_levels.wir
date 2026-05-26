@@ -1,0 +1,45 @@
+; 75_if_nested_two_levels.wir
+; purpose: nests an if inside the then-branch of an outer if.
+; verifies label allocation produces fresh names for the inner branch.
+; expected runtime behavior: process exits with code 42 (outer true, inner true).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (if
+          (condition
+            (lt_i32 (const_i32 1) (const_i32 5))
+          ) ;; condition
+          (then
+            (do
+              (if
+                (condition
+                  (gt_i32 (const_i32 9) (const_i32 4))
+                ) ;; condition
+                (then
+                  (do
+                    (return (const_i32 42))
+                  ) ;; do
+                ) ;; then
+                (else
+                  (do
+                    (return (const_i32 1))
+                  ) ;; do
+                ) ;; else
+              ) ;; if
+            ) ;; do
+          ) ;; then
+          (else
+            (do
+              (return (const_i32 2))
+            ) ;; do
+          ) ;; else
+        ) ;; if
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

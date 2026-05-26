@@ -1,15 +1,25 @@
+; SPDX-License-Identifier: Apache-2.0
 ; =============================================================================
-; Weave Stage 0 Bootstrap Compiler
 ; 04_lexer.ll
 ;
-; The lexer converts source bytes into a token stream.
+; Source -> token stream for the Stage 0 bootstrap compiler.
 ;
-; Responsibility:
+; Responsibilities:
+;   - skip whitespace and `;` line comments
+;   - recognise parens, identifiers, integer literals (incl. negative), and
+;     double-quoted string literals with the escape vocabulary the bootstrap
+;     subset admits (\\, \", \n, ...)
+;   - classify a small set of reserved keywords (fn, return, if, else, while,
+;     let, set, do, condition, ...) plus all WIR operator names (add_i32,
+;     const_i64, lt_ptr, cast_*, ...) by matching the identifier byte slice
+;     against a fixed table
+;   - push the recognised tokens onto a %weave.Tokens stream
 ;
-;     source bytes -> tokens
-;
-; It does not parse syntax. It only recognizes the small token vocabulary needed
-; by the Stage 0 bootstrap subset.
+; Boundary:
+;   No grammar / no AST. The lexer is intentionally a flat dispatch chain —
+;   compactness is sacrificed for auditability. New keywords or operators
+;   are admitted by adding one comparison to the chain below, never by
+;   rewriting it.
 ; =============================================================================
 
 ; ----------------------------------------------------------------------------
@@ -885,8 +895,9 @@ finish:
 parse_value:
   %data = call ptr @weave_source_data(ptr %source)
   %text = getelementptr inbounds i8, ptr %data, i64 %start
-  %value = call i32 @atoi(ptr %text)
-  %status = call i32 @weave_tokens_push(ptr %tokens, i32 4, i64 %start, i64 %token_length, i32 %value)
+  ; atoll, not atoi: const_i64 values (up to INT64_MAX) must survive.
+  %value = call i64 @atoll(ptr %text)
+  %status = call i32 @weave_tokens_push(ptr %tokens, i32 4, i64 %start, i64 %token_length, i64 %value)
   %failed = icmp ne i32 %status, 0
   br i1 %failed, label %fail, label %success
 
@@ -927,7 +938,7 @@ finish:
   %data = call ptr @weave_source_data(ptr %source)
   %text = getelementptr inbounds i8, ptr %data, i64 %start
   %kind = call i32 @weave_keyword_kind(ptr %text, i64 %token_length)
-  %status = call i32 @weave_tokens_push(ptr %tokens, i32 %kind, i64 %start, i64 %token_length, i32 0)
+  %status = call i32 @weave_tokens_push(ptr %tokens, i32 %kind, i64 %start, i64 %token_length, i64 0)
   %failed = icmp ne i32 %status, 0
   br i1 %failed, label %fail, label %success
 
@@ -999,7 +1010,7 @@ continue:
 
 finish:
   %content_length = sub i64 %index, %content_start
-  %status = call i32 @weave_tokens_push(ptr %tokens, i32 5, i64 %content_start, i64 %content_length, i32 0)
+  %status = call i32 @weave_tokens_push(ptr %tokens, i32 5, i64 %content_start, i64 %content_length, i64 0)
   %failed = icmp ne i32 %status, 0
   br i1 %failed, label %fail, label %success
 
@@ -1056,11 +1067,11 @@ check_rparen:
   br i1 %is_rparen, label %push_rparen, label %fail
 
 push_lparen:
-  %s0 = call i32 @weave_tokens_push(ptr %tokens, i32 1, i64 %index, i64 1, i32 0)
+  %s0 = call i32 @weave_tokens_push(ptr %tokens, i32 1, i64 %index, i64 1, i64 0)
   br label %single_done
 
 push_rparen:
-  %s1 = call i32 @weave_tokens_push(ptr %tokens, i32 2, i64 %index, i64 1, i32 0)
+  %s1 = call i32 @weave_tokens_push(ptr %tokens, i32 2, i64 %index, i64 1, i64 0)
   br label %single_done
 
 single_done:
@@ -1079,11 +1090,23 @@ fail:
 ; ----------------------------------------------------------------------------
 ; weave_lex
 ;
-; Convert a source buffer into a token stream.
+; Module entry point. Tokenise the entire %weave.Source into the supplied
+; %weave.Tokens stream, dispatching one byte at a time through the dispatch
+; chain (whitespace / comment / paren / number / string / identifier).
+;
+; Parameters:
+;   source - %weave.Source* with byte data and length already populated.
+;   tokens - %weave.Tokens* initialised via weave_tokens_init.
 ;
 ; Returns:
-;   0 on success
-;   1 on failure
+;   0 on success; the token stream holds the produced tokens.
+;   1 on failure (either argument null, an unrecognised byte, or any inner
+;     dispatch returning a sentinel index of -1).
+;
+; Notes:
+;   The lexer does not allocate or take ownership of `source` or `tokens` —
+;   the driver owns them. On failure the partial token stream is left in
+;   place; the caller frees both via the usual cleanup paths.
 ; ----------------------------------------------------------------------------
 
 
@@ -1191,7 +1214,7 @@ continue:
   br label %loop
 
 push_eof:
-  %status = call i32 @weave_tokens_push(ptr %tokens, i32 0, i64 %length, i64 0, i32 0)
+  %status = call i32 @weave_tokens_push(ptr %tokens, i32 0, i64 %length, i64 0, i64 0)
   %eof_failed = icmp ne i32 %status, 0
   br i1 %eof_failed, label %fail, label %success
 

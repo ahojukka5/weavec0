@@ -1,0 +1,55 @@
+; 99_many_locals_compound.wir
+; purpose: stresses the local table with eight i32 locals and one i64 local,
+;   referenced from a multi-term arithmetic expression.
+; verifies the alloca / local lookup path scales beyond the small examples
+;   and that the type table correctly distinguishes the i64 entry.
+; expected runtime behavior: process exits with code 42 (sum + cast).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (let a i32 (const_i32 1)) ;; let
+        (let b i32 (const_i32 2)) ;; let
+        (let c i32 (const_i32 3)) ;; let
+        (let d i32 (const_i32 4)) ;; let
+        (let e i32 (const_i32 5)) ;; let
+        (let f i32 (const_i32 6)) ;; let
+        (let g i32 (const_i32 7)) ;; let
+        (let h i32 (const_i32 8)) ;; let
+        (let big i64 (const_i64 6)) ;; let
+
+        (return
+          (add_i32
+            (add_i32
+              (add_i32
+                (add_i32
+                  (add_i32
+                    (add_i32
+                      (add_i32
+                        (local_get a)
+                        (local_get b)
+                      ) ;; add_i32
+                      (local_get c)
+                    ) ;; add_i32
+                    (local_get d)
+                  ) ;; add_i32
+                  (local_get e)
+                ) ;; add_i32
+                (local_get f)
+              ) ;; add_i32
+              (local_get g)
+            ) ;; add_i32
+            (add_i32
+              (local_get h)
+              (cast_i64_to_i32 (local_get big))
+            ) ;; add_i32
+          ) ;; add_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

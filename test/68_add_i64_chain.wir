@@ -1,0 +1,27 @@
+; 68_add_i64_chain.wir
+; purpose: exercises nested add_i64 expressions to verify operand re-use across temps.
+; verifies (add_i64 (add_i64 a b) c) lowers as a sequence of independent temps.
+; expected runtime behavior: process exits with code 42 (10 + 11 + 21).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (cast_i64_to_i32
+            (add_i64
+              (add_i64
+                (const_i64 10)
+                (const_i64 11)
+              ) ;; add_i64
+              (const_i64 21)
+            ) ;; add_i64
+          ) ;; cast_i64_to_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

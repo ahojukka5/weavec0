@@ -1,0 +1,49 @@
+; 89_deep_let_chain.wir
+; purpose: declares five sequential i32 locals each derived from the previous.
+; verifies the alloca / store / load pattern composes correctly at depth and
+;   that local-name lookups remain stable across many bindings.
+; expected runtime behavior: process exits with code 42 (1 + 2 + 4 + 8 + 16 + 11).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (let a i32 (const_i32 1)) ;; let
+        (let b i32
+          (add_i32 (local_get a) (const_i32 1))
+        ) ;; let (= 2)
+        (let c i32
+          (add_i32 (local_get b) (local_get b))
+        ) ;; let (= 4)
+        (let d i32
+          (add_i32 (local_get c) (local_get c))
+        ) ;; let (= 8)
+        (let e i32
+          (add_i32 (local_get d) (local_get d))
+        ) ;; let (= 16)
+
+        (return
+          (add_i32
+            (add_i32
+              (add_i32
+                (add_i32
+                  (add_i32
+                    (local_get a)
+                    (local_get b)
+                  ) ;; add_i32
+                  (local_get c)
+                ) ;; add_i32
+                (local_get d)
+              ) ;; add_i32
+              (local_get e)
+            ) ;; add_i32
+            (const_i32 11)
+          ) ;; add_i32
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

@@ -1,0 +1,19 @@
+; 64_const_i32_min.wir
+; purpose: stresses the i32 literal path at the lowest representable value.
+; verifies -2147483648 parses without overflow and lowers as a plain operand.
+; expected runtime behavior: process exits with code 0 (low byte of 0x80000000).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (const_i32 -2147483648)
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

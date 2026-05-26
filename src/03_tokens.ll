@@ -1,13 +1,21 @@
+; SPDX-License-Identifier: Apache-2.0
 ; =============================================================================
-; Weave Stage 0 Bootstrap Compiler
 ; 03_tokens.ll
 ;
-; Token stream management for the Stage 0 bootstrap compiler.
+; Token stream storage and accessors for the Stage 0 bootstrap compiler.
 ;
-; The lexer produces tokens into a compact token stream. The parser later reads
-; the stream sequentially.
+; Responsibilities:
+;   - own the %weave.Tokens struct (kinds / starts / lengths / values arrays
+;     plus count / capacity)
+;   - init/free token streams and grow capacity on demand
+;   - append tokens (push) from the lexer
+;   - expose typed accessors so the parser reads tokens without poking at
+;     getelementptr offsets directly
 ;
-; Stage 0 deliberately keeps tokens primitive and explicit.
+; Boundary:
+;   No lexing rules live here. Token kinds are numeric constants documented
+;   in 00_prelude.ll. The lexer (04_lexer.ll) is the only producer; the
+;   parser (06_parser.ll) is the only consumer.
 ; =============================================================================
 
 ; ----------------------------------------------------------------------------
@@ -139,7 +147,9 @@ entry:
   %kinds_bytes = mul i64 %capacity, 4
   %starts_bytes = mul i64 %capacity, 8
   %lengths_bytes = mul i64 %capacity, 8
-  %values_bytes = mul i64 %capacity, 4
+  ; Values are stored as i64 so const_i64 literals survive the lexer without
+  ; being silently truncated (atoll → i64 → tokens.values → parser).
+  %values_bytes = mul i64 %capacity, 8
 
   %kinds = call ptr @malloc(i64 %kinds_bytes)
   %starts = call ptr @malloc(i64 %starts_bytes)
@@ -301,7 +311,7 @@ reallocate:
   %kinds_bytes = mul i64 %current, 4
   %starts_bytes = mul i64 %current, 8
   %lengths_bytes = mul i64 %current, 8
-  %values_bytes = mul i64 %current, 4
+  %values_bytes = mul i64 %current, 8
 
   %kinds_new = call ptr @realloc(ptr %kinds_old, i64 %kinds_bytes)
   %starts_new = call ptr @realloc(ptr %starts_old, i64 %starts_bytes)
@@ -355,7 +365,7 @@ define i32 @weave_tokens_push(
   i32 %kind,
   i64 %start,
   i64 %length,
-  i32 %value
+  i64 %value
 ) {
 entry:
   %count = call i64 @weave_tokens_count(ptr %tokens)
@@ -375,12 +385,12 @@ store:
   %kind_ptr = getelementptr inbounds i32, ptr %kinds, i64 %count
   %start_ptr = getelementptr inbounds i64, ptr %starts, i64 %count
   %length_ptr = getelementptr inbounds i64, ptr %lengths, i64 %count
-  %value_ptr = getelementptr inbounds i32, ptr %values, i64 %count
+  %value_ptr = getelementptr inbounds i64, ptr %values, i64 %count
 
   store i32 %kind, ptr %kind_ptr
   store i64 %start, ptr %start_ptr
   store i64 %length, ptr %length_ptr
-  store i32 %value, ptr %value_ptr
+  store i64 %value, ptr %value_ptr
 
   %count_field = call ptr @weave_tokens_count_ptr(ptr %tokens)
   store i64 %needed, ptr %count_field
@@ -419,10 +429,10 @@ entry:
   ret i64 %value
 }
 
-define i32 @weave_token_value(ptr %tokens, i64 %index) {
+define i64 @weave_token_value(ptr %tokens, i64 %index) {
 entry:
   %values = call ptr @weave_tokens_values(ptr %tokens)
-  %slot = getelementptr inbounds i32, ptr %values, i64 %index
-  %value = load i32, ptr %slot
-  ret i32 %value
+  %slot = getelementptr inbounds i64, ptr %values, i64 %index
+  %value = load i64, ptr %slot
+  ret i64 %value
 }
