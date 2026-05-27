@@ -376,39 +376,28 @@ docstring, and `Notes:` blocks capture non-obvious design tradeoffs.
 
 # Where weavec0 fits in the chain
 
-`weavec0` is the **first stage** in a planned multi-stage Weave compiler
-chain. The later stages live in their own repositories and are not required
-to build, use, or contribute to this project.
+`weavec0` is the **seed** at the bottom of a four-repository Weave
+compiler chain. Each stage lives in its own repository and is
+independently buildable.
 
-## `weavec0` — this repository
+| Stage | Repo | Role |
+|-------|------|------|
+| `weavec0` | **this repo** | Hand-written LLVM-IR seed compiler. Compiles WIR → LLVM IR. Tiny, frozen. Bootstraps everything above it. |
+| `weavec1` | [`ahojukka5/weavec1`](https://github.com/ahojukka5/weavec1) | WIR-written compiler. Compiled by `weavec0`. Same WIR → LLVM IR contract, self-hosted implementation. |
+| `weavefront` | [`ahojukka5/weavefront`](https://github.com/ahojukka5/weavefront) | Surface (`.weave`) → WIR (`.wir`) frontend. Written in WIR, compiled by `weavec1`. |
+| `weavec2` | [`ahojukka5/weavec2`](https://github.com/ahojukka5/weavec2) | Self-hosted Weave compiler. Written in surface Weave; bootstrapped via `weavefront + weavec1`. |
 
-The hand-written LLVM IR bootstrap compiler.
-
-Characteristics:
+Characteristics of `weavec0`:
 
 - implemented manually in LLVM IR
-- tiny bootstrap subset (WIR -> LLVM IR)
+- tiny bootstrap subset (WIR → LLVM IR)
 - intentionally primitive
 - bridge compiler only
 
-As long as the compiler is hand-written LLVM IR, it is still `weavec0`,
-even if features are added.
-
-## `weavec1` — first self-hosting milestone
-
-The first compiler written in the Weave language itself, produced by
-bootstrapping with `weavec0`:
-
-```text
-weavec0 -> compiles weavec1 source -> weavec1 binary
-```
-
-`weavec1` is a separate project and lives in its own repository.
-
-## `weavec2` — self-sustaining
-
-A compiler compiled by `weavec1`. At this point the bootstrap chain
-becomes self-sustaining and the role of `weavec0` is finished.
+As long as the compiler is hand-written LLVM IR, it is still
+`weavec0`, even if features are added. Once `weavec2` is fully
+self-sustaining for surface inputs, `weavec0`'s job is to stay
+small and frozen.
 
 ---
 
