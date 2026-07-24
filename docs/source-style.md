@@ -1,18 +1,18 @@
 # weavec0 source style
 
 The hand-written LLVM IR modules under `src/` follow a small, consistent set
-of documentation conventions. The rules below are the canonical statement
-for this repository; the rest of the Weave compiler chain (`weavec1`,
-`weavec2`, ...) uses the same conventions in its own source trees.
+of documentation conventions. These rules are canonical for this repository;
+`weavec1`, `weavec-bootstrap`, and `weavec` use corresponding conventions in
+their own source trees.
 
 ## File header
 
 Every `src/NN_*.ll` opens with a banner-bounded block stating:
 
-- the filename,
-- a one-line role (what this module is, in plain prose),
-- a `Responsibilities:` bullet list,
-- a `Boundary:` note saying what does **not** belong in the file.
+- the filename;
+- a one-line role;
+- a `Responsibilities:` list;
+- a `Boundary:` note describing what does not belong in the file.
 
 ```llvm
 ; =============================================================================
@@ -32,7 +32,7 @@ Every `src/NN_*.ll` opens with a banner-bounded block stating:
 
 ## Section banners
 
-Group related defines under a section banner:
+Group related definitions under a section banner:
 
 ```llvm
 ; ----------------------------------------------------------------------------
@@ -40,14 +40,12 @@ Group related defines under a section banner:
 ; ----------------------------------------------------------------------------
 ```
 
-Use section names that match searchable compiler concepts (parser entry
-points, operator dispatch, block emission, AST storage, …) rather than
-restating the function names that follow.
+Use searchable compiler concepts rather than merely repeating the following
+function names.
 
 ## Function docstrings
 
-The cross-module / public functions in each module carry a structured doc
-block immediately above the `define`:
+Cross-module functions carry a structured block immediately above `define`:
 
 ```llvm
 ; ----------------------------------------------------------------------------
@@ -71,29 +69,27 @@ block immediately above the `define`:
 define i32 @weave_lex(ptr %source, ptr %tokens) {
 ```
 
-For status-code functions, say explicitly what `0` and non-zero mean.
-For functions that return an index, say what the failure sentinel is
-(`-1`, `i64 -1`, etc.).
+For status-code functions, document the meaning of zero and non-zero values.
+For functions returning an index, document the failure sentinel.
 
-Internal helpers (small accessors, leaf functions used only in this file)
-may keep a one-line purpose comment instead of the full block.
+Small accessors and leaf helpers used only within one file may keep a one-line
+purpose comment.
 
 ## Notes blocks
 
-Use `Notes:` to capture design tradeoffs the next reader could miss:
+Use `Notes:` for design tradeoffs a future maintainer could otherwise miss,
+such as:
 
-- linear dispatch chains chosen over compact tables (auditability over
-  compactness),
-- manual paren-balancing that captures only a name and discards body
-  tokens (a deliberate Stage 0 simplification),
-- the split between `@weave.emit.tmp_prefix` and `@weave.emit.indent_tmp`
-  cstrings (operand-position vs destination-position).
+- auditability-oriented linear dispatch chains;
+- intentionally discarded parser detail;
+- separate string constants for operand and destination formatting.
 
-Comments should explain *why* a non-obvious choice was made, not restate
-*what* the code does — the LLVM IR right below already says what.
+Comments should explain why a non-obvious choice exists rather than restating
+the LLVM IR below it.
 
 ## Spacing and trailing whitespace
 
 - One blank line between function blocks.
 - Section banners separated by a blank line above and below.
-- No trailing whitespace; every file ends in a newline.
+- No trailing whitespace.
+- Every file ends with a newline.
