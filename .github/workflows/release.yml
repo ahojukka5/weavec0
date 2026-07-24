@@ -1,0 +1,113 @@
+# SPDX-License-Identifier: Apache-2.0
+name: release
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*"]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-linux:
+    name: Linux x86-64 (${{ matrix.libc }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        libc: [glibc, musl]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install LLVM and libc toolchains
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            binutils \
+            clang \
+            file \
+            llvm \
+            musl-tools
+
+      - name: Show toolchain versions
+        run: |
+          clang --version
+          llvm-as --version
+          llvm-link --version
+          musl-gcc --version
+
+      - name: Build and run the full test ladder
+        run: ./build.sh
+
+      - name: Select archive version
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            version="$GITHUB_REF_NAME"
+          else
+            version="git-${GITHUB_SHA::12}"
+          fi
+          printf 'value=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build static ${{ matrix.libc }} archive
+        run: |
+          scripts/package-linux-release.sh \
+            "${{ matrix.libc }}" \
+            "${{ steps.version.outputs.value }}" \
+            dist
+
+      - name: Upload release archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: weavec0-linux-x86_64-${{ matrix.libc }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-linux
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download release archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: weavec0-linux-x86_64-*
+          path: dist
+          merge-multiple: true
+
+      - name: Create checksums
+        working-directory: dist
+        run: sha256sum *.tar.gz > SHA256SUMS
+
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" \
+              dist/*.tar.gz dist/SHA256SUMS \
+              --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              dist/*.tar.gz dist/SHA256SUMS \
+              --verify-tag \
+              --generate-notes \
+              --title "weavec0 $GITHUB_REF_NAME"
+          fi
