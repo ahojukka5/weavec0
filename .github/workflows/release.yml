@@ -63,7 +63,7 @@ jobs:
 
       - name: Build static ${{ matrix.libc }} archive
         run: |
-          scripts/package-linux-release.sh \
+          bash scripts/package-linux-release.sh \
             "${{ matrix.libc }}" \
             "${{ steps.version.outputs.value }}" \
             dist
