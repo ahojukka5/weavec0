@@ -3,10 +3,17 @@
 All notable changes to `weavec0` are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning follows
 [SemVer](https://semver.org/). The project remains pre-1.0, but its Stage 0 WIR
-and runtime contracts are now maintained conservatively because downstream
-compiler stages consume published SDKs.
+and runtime contracts are maintained conservatively because downstream compiler
+stages consume published SDKs.
 
 ## [Unreleased]
+
+### Documentation
+
+- Updated the compiler-chain terminology after `weavefront` was renamed to
+  `weavec-bootstrap` and `weavec2` was renamed to `weavec`.
+- Clarified that normal users consume `weavec`, while `weavec0`, `weavec1`, and
+  `weavec-bootstrap` form the reproducible bootstrap chain.
 
 ## [0.2.1] — 2026-07-24
 
