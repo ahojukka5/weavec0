@@ -1,90 +1,132 @@
 # Releasing weavec0
 
-`weavec0` publishes standalone Linux x86-64 compiler binaries in two variants:
+`weavec0` publishes versioned Linux x86-64 bootstrap SDKs for glibc and musl.
+The SDK is the supported binary input for `weavec1` and other downstream
+bootstrap consumers.
 
-- **glibc** — statically linked with glibc for conventional GNU/Linux systems;
-- **musl** — statically linked with musl for a smaller and broadly portable
-  Linux binary.
+## SDK contents
 
-Both variants are single-file executables. They do not require LLVM, Clang, or a
-C compiler at runtime. LLVM is only required when building `weavec0` or when
-assembling the LLVM IR produced by it.
-
-## GitHub Actions workflow
-
-The `.github/workflows/release.yml` workflow runs on pull requests, pushes to
-`master`, manual dispatches, and tags matching `v*`.
-
-Every build:
-
-1. installs LLVM, Clang, binutils, and musl tools;
-2. runs the complete `./build.sh` test ladder;
-3. creates static glibc and musl binaries;
-4. rejects binaries that contain an ELF interpreter;
-5. uses the packaged binary to compile `test/02_return_42.wir`;
-6. verifies the resulting LLVM IR with `llvm-as`;
-7. uploads each `.tar.gz` archive as a workflow artifact.
-
-A pushed `v*` tag additionally creates or updates a GitHub Release containing:
+Each archive contains:
 
 ```text
-weavec0-<tag>-linux-x86_64-glibc.tar.gz
-weavec0-<tag>-linux-x86_64-musl.tar.gz
+weavec0-vX.Y.Z-linux-x86_64-<libc>/
+├── bin/
+│   └── weavec0
+├── lib/
+│   ├── weavec0-bootstrap.bc
+│   ├── weavec0-bootstrap.o
+│   └── libweavec0-runtime.a
+├── include/
+│   └── runtime.h
+├── SDK-MANIFEST
+├── VERSION
+├── README.md
+├── LICENSE
+└── NOTICE
+```
+
+`bin/weavec0` is a fully static compiler executable. The bootstrap bitcode and
+object contain reusable compiler support code without `main`.
+`libweavec0-runtime.a` is the matching libc-specific runtime implementation.
+
+Consumers must keep components from one archive together. The bootstrap object
+and bitcode are libc-neutral, but the runtime library and compiler executable
+are built for the selected libc.
+
+## Published assets
+
+A normal release contains:
+
+```text
+weavec0-vX.Y.Z-linux-x86_64-glibc.tar.gz
+weavec0-vX.Y.Z-linux-x86_64-musl.tar.gz
 SHA256SUMS
 ```
 
-## Creating a release
+The current version is stored in [`VERSION`](VERSION).
 
-Create and push a version tag from the release commit:
+## Automatic release flow
 
-```bash
-git switch master
-git pull --ff-only
-git tag -a v0.1.0 -m "weavec0 v0.1.0"
-git push origin v0.1.0
-```
+`.github/workflows/release.yml` runs for pull requests, pushes to `master`,
+manual dispatches, and explicit `v*` tags.
 
-The release workflow builds both archives and publishes them after all build and
-smoke-test jobs succeed.
+Every glibc and musl build:
+
+1. installs LLVM, Clang, binutils, and musl tools;
+2. runs the complete `./build.sh` ladder;
+3. creates a fully static compiler executable;
+4. creates reusable bootstrap bitcode and object code without `main`;
+5. creates the matching static runtime library;
+6. rejects a compiler executable with an ELF interpreter;
+7. performs a compiler and SDK-only smoke test;
+8. uploads the versioned `.tar.gz` archive.
+
+For a push to `master`, the publish job reads `VERSION`. When the corresponding
+`v<VERSION>` release does not exist, the workflow creates it and uploads both
+SDK archives plus `SHA256SUMS`. Existing VERSION releases are left unchanged.
+
+An explicit `v*` tag rebuilds the tag and replaces its assets. This path is
+reserved for repairing a broken release workflow or damaged release assets.
 
 ## Building archives locally
 
-Install the required build tools first. On Debian or Ubuntu:
+On Debian or Ubuntu:
 
 ```bash
 sudo apt-get install -y binutils clang file llvm musl-tools
 ```
 
-Build and test the normal compiler:
+Build and validate the source compiler:
 
 ```bash
 ./build.sh
 ```
 
-Then create either archive:
+Create either SDK archive:
 
 ```bash
-bash scripts/package-linux-release.sh glibc v0.1.0 dist
-bash scripts/package-linux-release.sh musl v0.1.0 dist
+bash scripts/package-linux-release.sh glibc v0.2.1 dist
+bash scripts/package-linux-release.sh musl v0.2.1 dist
 ```
 
-The archives are written under `dist/`.
+The packaging script verifies the archive contents and static linkage before
+writing the result under `dist/`.
 
 ## Verifying a downloaded release
 
-Verify checksums:
+Download both the selected archive and `SHA256SUMS`, then run:
 
 ```bash
 sha256sum --check SHA256SUMS
 ```
 
-Extract one archive and run the compiler:
+Extract and use the compiler:
 
 ```bash
-tar -xzf weavec0-v0.1.0-linux-x86_64-musl.tar.gz
-cd weavec0-v0.1.0-linux-x86_64-musl
-./weavec0 input.wir output.ll
+tar -xzf weavec0-v0.2.1-linux-x86_64-musl.tar.gz
+cd weavec0-v0.2.1-linux-x86_64-musl
+bin/weavec0 input.wir output.ll
 ```
 
-The musl and glibc builds implement the same compiler and should produce
-byte-identical LLVM IR for the same input.
+A downstream compiler build may then link generated objects with:
+
+```text
+lib/weavec0-bootstrap.o
+lib/libweavec0-runtime.a
+```
+
+The glibc and musl compiler variants implement the same WIR contract and should
+produce byte-identical LLVM IR for the same input.
+
+## Release checklist
+
+Before changing `VERSION` or publishing a new SDK:
+
+- confirm the complete source ladder is green;
+- review any regenerated LLVM goldens;
+- confirm runtime ABI changes are documented;
+- confirm downstream dependency pins are updated only after publication;
+- inspect both archive manifests and `SHA256SUMS`.
+
+See [`docs/BOOTSTRAP_SDK.md`](docs/BOOTSTRAP_SDK.md) for the downstream binary
+contract.
