@@ -7,7 +7,9 @@
 ; Responsibilities:
 ;   - read the input into an owned, null-terminated source buffer
 ;   - initialise source, token, AST, and output storage
-;   - drive lex -> version validation -> parse -> emit
+;   - drive lex -> contract validation -> parse -> emit
+;   - validate the fixed WIR core version and admitted extern signatures before
+;     the parser discards extern signature syntax
 ;   - free every partially constructed stage on failure
 ; =============================================================================
 
@@ -96,6 +98,310 @@ unsupported:
   ret i32 0
 }
 
+; Extern declarations carry an explicit WIR signature even though the LLVM
+; declaration text is selected from a small name-keyed ABI table. Validate the
+; written signature before parsing so source and emitted ABI cannot disagree.
+;
+; A signature is packed into one i64:
+;   bits  0..7  parameter count
+;   bits  8..15 parameter 0 token kind
+;   bits 16..23 parameter 1 token kind
+;   bits 24..31 parameter 2 token kind
+;   bits 32..39 return type token kind
+%weave.ExternAbi = type { ptr, i64, i64 }
+
+@weave.validate.extern.puts = private unnamed_addr constant [5 x i8] c"puts\00"
+@weave.validate.extern.malloc = private unnamed_addr constant [7 x i8] c"malloc\00"
+@weave.validate.extern.free = private unnamed_addr constant [5 x i8] c"free\00"
+@weave.validate.extern.realloc = private unnamed_addr constant [8 x i8] c"realloc\00"
+@weave.validate.extern.memcpy = private unnamed_addr constant [7 x i8] c"memcpy\00"
+@weave.validate.extern.strlen = private unnamed_addr constant [7 x i8] c"strlen\00"
+@weave.validate.extern.strcmp = private unnamed_addr constant [7 x i8] c"strcmp\00"
+@weave.validate.extern.strncmp = private unnamed_addr constant [8 x i8] c"strncmp\00"
+@weave.validate.extern.atoi = private unnamed_addr constant [5 x i8] c"atoi\00"
+@weave.validate.extern.putchar = private unnamed_addr constant [8 x i8] c"putchar\00"
+@weave.validate.extern.read_file = private unnamed_addr constant [19 x i8] c"weave_rt_read_file\00"
+@weave.validate.extern.write_file = private unnamed_addr constant [20 x i8] c"weave_rt_write_file\00"
+@weave.validate.extern.fatal = private unnamed_addr constant [15 x i8] c"weave_rt_fatal\00"
+
+@weave.validate.extern_abis = private constant [13 x %weave.ExternAbi] [
+  %weave.ExternAbi { ptr @weave.validate.extern.puts, i64 4, i64 137438968321 },
+  %weave.ExternAbi { ptr @weave.validate.extern.malloc, i64 6, i64 249108113153 },
+  %weave.ExternAbi { ptr @weave.validate.extern.free, i64 4, i64 253403085313 },
+  %weave.ExternAbi { ptr @weave.validate.extern.realloc, i64 7, i64 249110673922 },
+  %weave.ExternAbi { ptr @weave.validate.extern.memcpy, i64 6, i64 249766230531 },
+  %weave.ExternAbi { ptr @weave.validate.extern.strlen, i64 6, i64 167503739393 },
+  %weave.ExternAbi { ptr @weave.validate.extern.strcmp, i64 6, i64 137442769410 },
+  %weave.ExternAbi { ptr @weave.validate.extern.strncmp, i64 7, i64 138097080835 },
+  %weave.ExternAbi { ptr @weave.validate.extern.atoi, i64 4, i64 137438968321 },
+  %weave.ExternAbi { ptr @weave.validate.extern.putchar, i64 7, i64 137438961665 },
+  %weave.ExternAbi { ptr @weave.validate.extern.read_file, i64 18, i64 249111919106 },
+  %weave.ExternAbi { ptr @weave.validate.extern.write_file, i64 19, i64 138097080835 },
+  %weave.ExternAbi { ptr @weave.validate.extern.fatal, i64 14, i64 253403085313 }
+]
+
+define i32 @weave_validate_admitted_extern_signature(
+  ptr %source,
+  ptr %tokens,
+  i64 %name_index,
+  i64 %signature
+) {
+entry:
+  %source_data = call ptr @weave_source_data(ptr %source)
+  %name_start = call i64 @weave_token_start(ptr %tokens, i64 %name_index)
+  %name_length = call i64 @weave_token_length(ptr %tokens, i64 %name_index)
+  %name = getelementptr inbounds i8, ptr %source_data, i64 %name_start
+  br label %lookup
+
+lookup:
+  %table_index = phi i64 [0, %entry], [%next_index, %next]
+  %done = icmp uge i64 %table_index, 13
+  br i1 %done, label %unknown, label %compare_name
+
+compare_name:
+  %row = getelementptr inbounds [13 x %weave.ExternAbi],
+    ptr @weave.validate.extern_abis, i64 0, i64 %table_index
+  %expected_name_ptr = getelementptr inbounds %weave.ExternAbi,
+    ptr %row, i32 0, i32 0
+  %expected_length_ptr = getelementptr inbounds %weave.ExternAbi,
+    ptr %row, i32 0, i32 1
+  %expected_signature_ptr = getelementptr inbounds %weave.ExternAbi,
+    ptr %row, i32 0, i32 2
+  %expected_name = load ptr, ptr %expected_name_ptr
+  %expected_length = load i64, ptr %expected_length_ptr
+  %name_equal_status = call i32 @weave_bytes_equal(
+    ptr %name, i64 %name_length, ptr %expected_name, i64 %expected_length)
+  %name_equal = icmp ne i32 %name_equal_status, 0
+  br i1 %name_equal, label %compare_signature, label %next
+
+compare_signature:
+  %expected_signature = load i64, ptr %expected_signature_ptr
+  %signature_equal = icmp eq i64 %signature, %expected_signature
+  %result = zext i1 %signature_equal to i32
+  ret i32 %result
+
+next:
+  %next_index = add i64 %table_index, 1
+  br label %lookup
+
+unknown:
+  ; Unknown extern names remain the emitter's responsibility. Their syntax must
+  ; still be structurally valid, but there is no admitted ABI to compare here.
+  ret i32 1
+}
+
+define i64 @weave_validate_one_extern(
+  ptr %source,
+  ptr %tokens,
+  i64 %extern_index
+) {
+entry:
+  %param_count_storage = alloca i64
+  %param0_storage = alloca i32
+  %param1_storage = alloca i32
+  %param2_storage = alloca i32
+  %cursor_storage = alloca i64
+  store i64 0, ptr %param_count_storage
+  store i32 0, ptr %param0_storage
+  store i32 0, ptr %param1_storage
+  store i32 0, ptr %param2_storage
+  %at_start = icmp eq i64 %extern_index, 0
+  br i1 %at_start, label %fail, label %check_open
+
+check_open:
+  %open_index = sub i64 %extern_index, 1
+  %open_kind = call i32 @weave_token_kind(ptr %tokens, i64 %open_index)
+  %open_ok = icmp eq i32 %open_kind, 1
+  br i1 %open_ok, label %check_name, label %fail
+
+check_name:
+  %name_index = add i64 %extern_index, 1
+  %name_kind = call i32 @weave_token_kind(ptr %tokens, i64 %name_index)
+  %name_ok = icmp eq i32 %name_kind, 3
+  br i1 %name_ok, label %check_params_open, label %fail
+
+check_params_open:
+  %params_open_index = add i64 %extern_index, 2
+  %params_open_kind = call i32 @weave_token_kind(ptr %tokens, i64 %params_open_index)
+  %params_open_ok = icmp eq i32 %params_open_kind, 1
+  br i1 %params_open_ok, label %check_params_head, label %fail
+
+check_params_head:
+  %params_head_index = add i64 %extern_index, 3
+  %params_head_kind = call i32 @weave_token_kind(ptr %tokens, i64 %params_head_index)
+  %params_head_ok = icmp eq i32 %params_head_kind, 28
+  br i1 %params_head_ok, label %init_param_loop, label %fail
+
+init_param_loop:
+  %first_param_index = add i64 %extern_index, 4
+  store i64 %first_param_index, ptr %cursor_storage
+  br label %param_loop
+
+param_loop:
+  %cursor = load i64, ptr %cursor_storage
+  %kind = call i32 @weave_token_kind(ptr %tokens, i64 %cursor)
+  %params_done = icmp eq i32 %kind, 2
+  br i1 %params_done, label %check_returns_open, label %check_param_open
+
+check_param_open:
+  %param_open_ok = icmp eq i32 %kind, 1
+  br i1 %param_open_ok, label %check_param_name, label %fail
+
+check_param_name:
+  %param_name_index = add i64 %cursor, 1
+  %param_name_kind = call i32 @weave_token_kind(ptr %tokens, i64 %param_name_index)
+  %param_name_ok = icmp eq i32 %param_name_kind, 3
+  br i1 %param_name_ok, label %check_param_type, label %fail
+
+check_param_type:
+  %param_type_index = add i64 %cursor, 2
+  %param_type = call i32 @weave_token_kind(ptr %tokens, i64 %param_type_index)
+  %param_is_i32 = icmp eq i32 %param_type, 32
+  %param_is_i64 = icmp eq i32 %param_type, 39
+  %param_is_ptr = icmp eq i32 %param_type, 58
+  %param_int_ok = or i1 %param_is_i32, %param_is_i64
+  %param_type_ok = or i1 %param_int_ok, %param_is_ptr
+  br i1 %param_type_ok, label %check_param_close, label %fail
+
+check_param_close:
+  %param_close_index = add i64 %cursor, 3
+  %param_close_kind = call i32 @weave_token_kind(ptr %tokens, i64 %param_close_index)
+  %param_close_ok = icmp eq i32 %param_close_kind, 2
+  br i1 %param_close_ok, label %store_param, label %fail
+
+store_param:
+  %param_count = load i64, ptr %param_count_storage
+  %too_many = icmp uge i64 %param_count, 3
+  br i1 %too_many, label %fail, label %select_param_slot
+
+select_param_slot:
+  switch i64 %param_count, label %fail [
+    i64 0, label %store_param0
+    i64 1, label %store_param1
+    i64 2, label %store_param2
+  ]
+
+store_param0:
+  store i32 %param_type, ptr %param0_storage
+  br label %advance_param
+
+store_param1:
+  store i32 %param_type, ptr %param1_storage
+  br label %advance_param
+
+store_param2:
+  store i32 %param_type, ptr %param2_storage
+  br label %advance_param
+
+advance_param:
+  %next_param_count = add i64 %param_count, 1
+  %next_cursor = add i64 %cursor, 4
+  store i64 %next_param_count, ptr %param_count_storage
+  store i64 %next_cursor, ptr %cursor_storage
+  br label %param_loop
+
+check_returns_open:
+  %returns_open_index = add i64 %cursor, 1
+  %returns_open_kind = call i32 @weave_token_kind(ptr %tokens, i64 %returns_open_index)
+  %returns_open_ok = icmp eq i32 %returns_open_kind, 1
+  br i1 %returns_open_ok, label %check_returns_head, label %fail
+
+check_returns_head:
+  %returns_head_index = add i64 %cursor, 2
+  %returns_head_kind = call i32 @weave_token_kind(ptr %tokens, i64 %returns_head_index)
+  %returns_head_ok = icmp eq i32 %returns_head_kind, 29
+  br i1 %returns_head_ok, label %check_return_type, label %fail
+
+check_return_type:
+  %return_type_index = add i64 %cursor, 3
+  %return_type = call i32 @weave_token_kind(ptr %tokens, i64 %return_type_index)
+  %return_is_i32 = icmp eq i32 %return_type, 32
+  %return_is_i64 = icmp eq i32 %return_type, 39
+  %return_is_ptr = icmp eq i32 %return_type, 58
+  %return_is_void = icmp eq i32 %return_type, 59
+  %return_int_ok = or i1 %return_is_i32, %return_is_i64
+  %return_value_ok = or i1 %return_int_ok, %return_is_ptr
+  %return_type_ok = or i1 %return_value_ok, %return_is_void
+  br i1 %return_type_ok, label %check_returns_close, label %fail
+
+check_returns_close:
+  %returns_close_index = add i64 %cursor, 4
+  %returns_close_kind = call i32 @weave_token_kind(ptr %tokens, i64 %returns_close_index)
+  %returns_close_ok = icmp eq i32 %returns_close_kind, 2
+  br i1 %returns_close_ok, label %check_extern_close, label %fail
+
+check_extern_close:
+  %extern_close_index = add i64 %cursor, 5
+  %extern_close_kind = call i32 @weave_token_kind(ptr %tokens, i64 %extern_close_index)
+  %extern_close_ok = icmp eq i32 %extern_close_kind, 2
+  br i1 %extern_close_ok, label %check_signature, label %fail
+
+check_signature:
+  %final_param_count = load i64, ptr %param_count_storage
+  %param0 = load i32, ptr %param0_storage
+  %param1 = load i32, ptr %param1_storage
+  %param2 = load i32, ptr %param2_storage
+  %param0_wide = zext i32 %param0 to i64
+  %param1_wide = zext i32 %param1 to i64
+  %param2_wide = zext i32 %param2 to i64
+  %return_type_wide = zext i32 %return_type to i64
+  %param0_bits = shl i64 %param0_wide, 8
+  %param1_bits = shl i64 %param1_wide, 16
+  %param2_bits = shl i64 %param2_wide, 24
+  %return_bits = shl i64 %return_type_wide, 32
+  %signature0 = or i64 %final_param_count, %param0_bits
+  %signature1 = or i64 %signature0, %param1_bits
+  %signature2 = or i64 %signature1, %param2_bits
+  %signature = or i64 %signature2, %return_bits
+  %signature_ok_status = call i32 @weave_validate_admitted_extern_signature(
+    ptr %source, ptr %tokens, i64 %name_index, i64 %signature
+  )
+  %signature_ok = icmp ne i32 %signature_ok_status, 0
+  br i1 %signature_ok, label %success, label %fail
+
+success:
+  %next_index = add i64 %cursor, 6
+  ret i64 %next_index
+
+fail:
+  ret i64 -1
+}
+
+define i32 @weave_validate_extern_signatures(ptr %source, ptr %tokens) {
+entry:
+  %count = call i64 @weave_tokens_count(ptr %tokens)
+  br label %scan
+
+scan:
+  %index = phi i64 [0, %entry], [%plain_next, %advance], [%extern_next, %after_extern]
+  %done = icmp uge i64 %index, %count
+  br i1 %done, label %valid, label %classify
+
+classify:
+  %kind = call i32 @weave_token_kind(ptr %tokens, i64 %index)
+  %is_extern = icmp eq i32 %kind, 57
+  br i1 %is_extern, label %validate_extern, label %advance
+
+advance:
+  %plain_next = add i64 %index, 1
+  br label %scan
+
+validate_extern:
+  %extern_next = call i64 @weave_validate_one_extern(
+    ptr %source, ptr %tokens, i64 %index)
+  %extern_failed = icmp slt i64 %extern_next, 0
+  br i1 %extern_failed, label %invalid, label %after_extern
+
+after_extern:
+  br label %scan
+
+valid:
+  ret i32 1
+
+invalid:
+  ret i32 0
+}
+
 ; ----------------------------------------------------------------------------
 ; File-to-file compilation
 ; ----------------------------------------------------------------------------
@@ -141,11 +447,22 @@ lex_error:
 validate_version:
   %version_ok_status = call i32 @weave_validate_core_version(ptr %tokens)
   %version_bad = icmp eq i32 %version_ok_status, 0
-  br i1 %version_bad, label %version_error, label %init_ast
+  br i1 %version_bad, label %version_error, label %validate_externs
 
 version_error:
   %msg_version = call ptr @weave_cstr_err_parse()
   call void @weave_driver_print_error(ptr %msg_version)
+  br label %cleanup_tokens_source_fail
+
+validate_externs:
+  %externs_ok_status = call i32 @weave_validate_extern_signatures(
+    ptr %source, ptr %tokens)
+  %externs_bad = icmp eq i32 %externs_ok_status, 0
+  br i1 %externs_bad, label %extern_error, label %init_ast
+
+extern_error:
+  %msg_extern = call ptr @weave_cstr_err_parse()
+  call void @weave_driver_print_error(ptr %msg_extern)
   br label %cleanup_tokens_source_fail
 
 init_ast:
