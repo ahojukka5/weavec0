@@ -60,6 +60,8 @@ CASE
   count=$((count + 1))
 }
 
+# Exercise the four adjacent signed-boundary failures first, then prove that
+# decimal length cannot bypass the same bounded accumulation checks.
 run_case i32-max-plus-one '(const_i32 2147483648)'
 run_case i32-min-minus-one '(const_i32 -2147483649)'
 run_case i64-max-plus-one '(cast_i64_to_i32 (const_i64 9223372036854775808))'
