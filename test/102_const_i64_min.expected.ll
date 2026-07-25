@@ -6,3 +6,4 @@ entry:
   %t1 = trunc i64 %t0 to i32
   ret i32 %t1
 }
+
