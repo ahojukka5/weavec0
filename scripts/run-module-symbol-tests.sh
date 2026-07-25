@@ -86,6 +86,8 @@ run_failure() {
   count=$((count + 1))
 }
 
+# Functions and externs share one declaration namespace, and forward function
+# calls are valid because the module validator sees the complete parsed AST.
 run_positive forward-function-call 42 '
 (core-module (core-version 1) (decls
   (fn first (params) (returns i32)
