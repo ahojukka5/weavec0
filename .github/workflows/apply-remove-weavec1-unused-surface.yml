@@ -27,6 +27,19 @@ jobs:
           sudo apt-get update -qq >/dev/null
           sudo apt-get install -y -qq llvm clang >/dev/null
 
+      - name: Correct parser-label removal list
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/apply-remove-weavec1-unused-surface.py')
+          text = path.read_text()
+          old = '["check_print", "parse_print", "print_close", "make_print", "parse_gt_i64", "parse_ge_i64"]'
+          new = '["check_print", "parse_print", "print_close", "make_print"]'
+          if text.count(old) != 1:
+              raise SystemExit('expected parser-label list once')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
       - name: Apply and validate minimization
         id: minimize
         shell: bash
