@@ -25,8 +25,8 @@ small, auditable, deterministic, and capable of building `weavec1`.
 ## Current status
 
 - The source test ladder contains 104 cases: 93 positive cases and 11 expected failures.
-- The combined test and pinned-`weavec1` corpus covers 98.17% of functions,
-  90.16% of basic blocks, and 72.15% of conditional branch outcomes.
+- The combined test and pinned-`weavec1` corpus covers 100% of functions,
+  92.54% of basic blocks, and 78.79% of conditional branch outcomes.
 - The static audit reports no Stage 0 function unreachable from both the command
   line compiler and the pinned Stage 1 corpus.
 - CI enforces conservative coverage non-regression floors and publishes a
