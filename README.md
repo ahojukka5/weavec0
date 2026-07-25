@@ -7,9 +7,9 @@
 
 ## Role
 
-`weavec0` compiles the WIR core version 2 bootstrap profile (`*.wir`),
-to LLVM IR (`*.ll`). The compiler is written directly in LLVM IR and uses a
-small C runtime for file I/O, allocation, output, and fatal diagnostics.
+`weavec0` compiles the WIR core version 2 bootstrap profile (`*.wir`) to LLVM IR
+(`*.ll`). The compiler is written directly in LLVM IR and uses a small C runtime
+for file I/O, allocation, output, and fatal diagnostics.
 
 ```text
 WIR source
@@ -24,7 +24,8 @@ small, auditable, deterministic, and capable of building `weavec1`.
 
 ## Current status
 
-- The source test ladder contains 104 cases: 93 positive cases and 11 expected failures.
+- The source test ladder contains 104 cases: 93 positive cases and 11 expected
+  failures.
 - The combined test and pinned-`weavec1` corpus covers 100% of functions,
   92.54% of basic blocks, and 78.79% of conditional branch outcomes.
 - The static audit reports no Stage 0 function unreachable from both the command
@@ -35,18 +36,21 @@ small, auditable, deterministic, and capable of building `weavec1`.
 - `weavec1` uses `weavec0` only as a build-time compiler and does not embed the
   Stage 0 implementation in Stage 1 binaries.
 - WIR core version 2 and the runtime ABI are versioned bootstrap contracts.
-- The current release is 0.4.0; the authoritative value is stored in [`VERSION`](VERSION).
+- The current release is 0.4.0; the authoritative value is stored in
+  [`VERSION`](VERSION).
 
 ## Build from source
 
 Requirements:
 
 - LLVM and Clang 14 or newer;
-- Bash 4 or newer.
+- Bash 4 or newer;
+- Python 3 for repository audits.
 
 ```sh
 git clone https://github.com/ahojukka5/weavec0.git
 cd weavec0
+python3 scripts/check_docs.py
 ./build.sh
 ```
 
@@ -96,8 +100,8 @@ different runtime implementations. A consumer must verify the archive against
 `SHA256SUMS` and keep the compiler and runtime from the selected variant
 together.
 
-See [`docs/BOOTSTRAP_SDK.md`](docs/BOOTSTRAP_SDK.md) and
-[`RELEASING.md`](RELEASING.md).
+See [`docs/bootstrap-sdk.md`](docs/bootstrap-sdk.md) and
+[`docs/releasing.md`](docs/releasing.md).
 
 ## Build and test ladder
 
@@ -120,7 +124,7 @@ The build:
 Use `--regen-goldens` only after an intentional emitter change and review the
 resulting diff. Correctness is always checked before any fixture is regenerated.
 
-## Coverage and minimisation audit
+## Coverage and minimization audit
 
 The audit measures function, basic-block, and branch-outcome coverage on a
 temporary instrumented copy of the linked compiler. It runs both the Stage 0
@@ -137,8 +141,8 @@ which Stage 0 functions are unreachable from either the command-line compiler or
 any direct Stage 1 dependency. This evidence is used to add focused tests and to
 identify code that can be removed safely.
 
-See [`docs/COVERAGE.md`](docs/COVERAGE.md) for the metrics, reports, current
-baseline, and compatibility rules for removal candidates.
+See [`docs/coverage.md`](docs/coverage.md) and
+[`docs/minimization.md`](docs/minimization.md).
 
 ## Repository layout
 
@@ -152,7 +156,7 @@ weavec0/
 ├── src/                 hand-written LLVM compiler modules
 ├── test/                WIR fixtures and LLVM goldens
 ├── scripts/             release, audit, and coverage tools
-└── docs/                SDK, coverage, and source-style documentation
+└── docs/                architecture and versioned bootstrap contracts
 ```
 
 The numeric source prefixes expose the dependency order explicitly:
@@ -161,12 +165,21 @@ The numeric source prefixes expose the dependency order explicitly:
 source bytes → lexer → tokens → parser → AST → LLVM emitter → LLVM IR
 ```
 
-## Runtime boundary
+See [`docs/architecture.md`](docs/architecture.md) for the module boundaries and
+verification model.
+
+## WIR and runtime boundaries
+
+WIR core version 2 is shared by the bootstrap chain. Stage 0 implements only the
+strict profile required by the pinned Stage 1 sources; the complete stable WIR
+v2 backend belongs to `weavec1`.
+
+See [`docs/wir.md`](docs/wir.md).
 
 `src/01_runtime_bindings.ll` declares the small ABI implemented by the runtime.
 The source build compiles `runtime.c`; SDK consumers link the matching
-`libweavec0-runtime.a`. Downstream Linux builds do not need to carry
-`runtime.c` as source.
+`libweavec0-runtime.a`. Downstream Linux builds do not need to carry `runtime.c`
+as source.
 
 ## Compiler chain
 
@@ -174,8 +187,8 @@ The source build compiles `runtime.c`; SDK consumers link the matching
 |---|---|---|
 | `weavec0` | **this repository** | Hand-written Stage 0 seed and minimal build SDK. |
 | `weavec1` | [`ahojukka5/weavec1`](https://github.com/ahojukka5/weavec1) | WIR-written compiler and Stage 1 SDK. |
-| `weavec-bootstrap` | [`ahojukka5/weavec-bootstrap`](https://github.com/ahojukka5/weavec-bootstrap) | Frozen surface-Weave-to-WIR bootstrap frontend, formerly `weavefront`. |
-| `weavec` | [`ahojukka5/weavec`](https://github.com/ahojukka5/weavec) | User-facing self-hosted compiler written in surface Weave, formerly `weavec2`. |
+| `weavec-bootstrap` | [`ahojukka5/weavec-bootstrap`](https://github.com/ahojukka5/weavec-bootstrap) | Frozen surface-Weave-to-WIR bootstrap frontend. |
+| `weavec` | [`ahojukka5/weavec`](https://github.com/ahojukka5/weavec) | User-facing self-hosted compiler written in surface Weave. |
 
 ```text
 hand-written LLVM IR
@@ -201,7 +214,8 @@ the reproducible bootstrap chain and should change conservatively.
 - Version every externally visible WIR, runtime ABI, or SDK-layout change.
 - Publish a new SDK before updating downstream dependency pins.
 
-Source style is documented in [`docs/source-style.md`](docs/source-style.md).
+Source style is documented in
+[`docs/source-style.md`](docs/source-style.md).
 
 ## Known limitations
 
@@ -211,6 +225,12 @@ Source style is documented in [`docs/source-style.md`](docs/source-style.md).
 - Published SDKs currently target Linux x86-64 only.
 - `const_string_ptr` is supported only in the direct call-argument shape covered
   by `test/29_const_string_ptr.wir`.
+
+## Documentation
+
+Start with [`docs/index.md`](docs/index.md). Files under `docs/` use lowercase
+kebab-case names. Conventional root metadata keeps its standard uppercase
+spelling.
 
 ## Releases
 
@@ -229,4 +249,4 @@ Licensed under the Apache License, Version 2.0. See [`LICENSE`](LICENSE) and
 ## Contributing
 
 Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before changing the WIR contract,
-runtime ABI, emitter output, or release packaging.
+runtime ABI, emitter output, documentation, or release packaging.
