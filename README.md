@@ -25,13 +25,15 @@ small, auditable, deterministic, and capable of building `weavec1`.
 ## Current status
 
 - The source test ladder contains 104 cases: 93 positive cases and 11 expected failures.
-- The combined test and pinned-`weavec1` corpus currently covers 95.98% of
-  functions, 87.76% of basic blocks, and 70.13% of conditional branch outcomes.
+- The combined test and pinned-`weavec1` corpus covers 98.17% of functions,
+  90.16% of basic blocks, and 72.15% of conditional branch outcomes.
+- The static audit reports no Stage 0 function unreachable from both the command
+  line compiler and the pinned Stage 1 corpus.
 - CI enforces conservative coverage non-regression floors and publishes a
   machine-readable bootstrap-surface report.
-- Linux x86-64 bootstrap SDKs are published for glibc and musl.
-- `weavec1` builds from the published Stage 0 SDK without rebuilding this
-  repository on Linux.
+- Minimal Linux x86-64 SDKs are published for glibc and musl.
+- `weavec1` uses `weavec0` only as a build-time compiler and does not embed the
+  Stage 0 implementation in Stage 1 binaries.
 - The WIR and runtime boundaries are versioned bootstrap contracts.
 - The current release version is stored in [`VERSION`](VERSION).
 
@@ -60,7 +62,7 @@ The source build assembles the numbered LLVM modules, links them with
 `runtime.c`, creates `./weavec0`, and runs every case in
 [`test/manifest.txt`](test/manifest.txt).
 
-## Published bootstrap SDK
+## Published Stage 0 SDK
 
 Downstream stages should consume the published SDK instead of cloning and
 rebuilding Stage 0.
@@ -70,8 +72,6 @@ weavec0-vX.Y.Z-linux-x86_64-<libc>/
 ├── bin/
 │   └── weavec0
 ├── lib/
-│   ├── weavec0-bootstrap.bc
-│   ├── weavec0-bootstrap.o
 │   └── libweavec0-runtime.a
 ├── include/
 │   └── runtime.h
@@ -82,15 +82,19 @@ weavec0-vX.Y.Z-linux-x86_64-<libc>/
 └── NOTICE
 ```
 
-- `bin/weavec0` compiles WIR to LLVM IR.
-- `weavec0-bootstrap.bc` and `weavec0-bootstrap.o` contain reusable compiler
-  support code without `main`.
-- `libweavec0-runtime.a` is the libc-specific runtime implementation.
+- `bin/weavec0` is the static WIR-to-LLVM build-time compiler.
+- `libweavec0-runtime.a` is the matching libc-specific runtime implementation.
 - `runtime.h` documents the runtime ABI.
+- `SDK-MANIFEST` records the exact required components and target variant.
 
-The glibc and musl archives contain the same compiler contract but different
-runtime implementations. A consumer must verify the archive against
-`SHA256SUMS` and keep all components from the selected variant together.
+Stage 0 compiler implementation objects and bitcode are deliberately not part
+of the SDK. The generated Stage 1 compiler is linked from its own generated
+modules and the matching runtime; it does not embed Stage 0.
+
+The glibc and musl archives implement the same compiler contract but contain
+different runtime implementations. A consumer must verify the archive against
+`SHA256SUMS` and keep the compiler and runtime from the selected variant
+together.
 
 See [`docs/BOOTSTRAP_SDK.md`](docs/BOOTSTRAP_SDK.md) and
 [`RELEASING.md`](RELEASING.md).
@@ -168,7 +172,7 @@ The source build compiles `runtime.c`; SDK consumers link the matching
 
 | Component | Repository | Role |
 |---|---|---|
-| `weavec0` | **this repository** | Hand-written Stage 0 seed and bootstrap SDK. |
+| `weavec0` | **this repository** | Hand-written Stage 0 seed and minimal build SDK. |
 | `weavec1` | [`ahojukka5/weavec1`](https://github.com/ahojukka5/weavec1) | WIR-written compiler and Stage 1 SDK. |
 | `weavec-bootstrap` | [`ahojukka5/weavec-bootstrap`](https://github.com/ahojukka5/weavec-bootstrap) | Frozen surface-Weave-to-WIR bootstrap frontend, formerly `weavefront`. |
 | `weavec` | [`ahojukka5/weavec`](https://github.com/ahojukka5/weavec) | User-facing self-hosted compiler written in surface Weave, formerly `weavec2`. |
@@ -194,7 +198,7 @@ the reproducible bootstrap chain and should change conservatively.
 - Keep the parser and emitter explicit and auditable.
 - Preserve deterministic LLVM output.
 - Avoid production-compiler features in Stage 0.
-- Version every externally visible WIR or runtime ABI change.
+- Version every externally visible WIR, runtime ABI, or SDK-layout change.
 - Publish a new SDK before updating downstream dependency pins.
 
 Source style is documented in [`docs/source-style.md`](docs/source-style.md).
@@ -211,8 +215,8 @@ Source style is documented in [`docs/source-style.md`](docs/source-style.md).
 ## Releases
 
 The release workflow builds glibc and musl SDKs, runs the full ladder, verifies
-static linkage, performs SDK-only smoke tests, creates checksums, and publishes
-`.tar.gz` archives.
+the exact minimal archive layout and static linkage, performs compile-link-run
+smoke tests, creates checksums, and publishes `.tar.gz` archives.
 
 A push to `master` creates `v<VERSION>` when that release does not already
 exist. Existing version releases remain immutable.
