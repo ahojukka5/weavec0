@@ -4,9 +4,12 @@ name: export bootstrap sources
 on:
   push:
     branches: [agent/wir-v2-finalize]
+  pull_request:
+    branches: [master]
 
 jobs:
   export:
+    if: github.head_ref == 'agent/wir-v2-finalize' || github.ref_name == 'agent/wir-v2-finalize'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout weavec0
