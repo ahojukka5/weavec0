@@ -15,5 +15,7 @@ bash "$ROOT/scripts/run-extern-signature-negative-matrix.sh" \
   "$ROOT/weavec0" "$ROOT/build/bootstrap-tests/extern-signature-negative-matrix"
 bash "$ROOT/scripts/run-binding-scope-tests.sh" \
   "$ROOT/weavec0" "$ROOT/build/bootstrap-tests/binding-scope"
+bash "$ROOT/scripts/run-module-symbol-tests.sh" \
+  "$ROOT/weavec0" "$ROOT/build/bootstrap-tests/module-symbols"
 
-printf '[tests] complete WIR, CLI, generated negative, extern-signature, and binding-scope ladders passed\n' >&2
+printf '[tests] complete WIR, CLI, generated negative, extern-signature, binding-scope, and module-symbol ladders passed\n' >&2
