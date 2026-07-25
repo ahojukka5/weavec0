@@ -90,7 +90,7 @@ cat > "$POSITIVE_WIR" <<'WIR'
       (params)
       (returns i32)
       (do
-        (return (call_i32 identity (call_i32 first)))))))
+        (return (call_i32 first))))))
 WIR
 
 rm -f "$POSITIVE_LL" "$POSITIVE_BC" "$POSITIVE_EXE"
