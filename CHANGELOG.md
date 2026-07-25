@@ -37,8 +37,6 @@ stages consume published SDKs.
 - Buffer and token growth paths now reject size arithmetic overflow.
 - Token accessors now return EOF or zero for out-of-range lookahead instead of
   reading uninitialised capacity slack.
-- In-memory compilation now copies bounded caller input into owned,
-  null-terminated storage before lexing.
 - Stage 0 now rejects `(core-version N)` values other than version 1.
 - Corrected the token layout documentation to describe the i64 literal-value
   channel accurately.
