@@ -76,13 +76,17 @@ pass before instrumentation begins.
 
 ## Current baseline
 
-The first combined Stage 0 and pinned Stage 1 measurement produced:
+After removing five helpers proven unreachable by both the static call graph and
+the combined corpus, the measurement is:
 
 | Metric | Covered | Total | Coverage |
 |---|---:|---:|---:|
-| Functions | 215 | 224 | 95.98% |
-| Basic blocks | 1,283 | 1,462 | 87.76% |
-| Branch outcomes | 1,052 | 1,500 | 70.13% |
+| Functions | 215 | 219 | 98.17% |
+| Basic blocks | 1,283 | 1,423 | 90.16% |
+| Branch outcomes | 1,052 | 1,458 | 72.15% |
+
+The static report contains no function unreachable from both Stage 0 `main` and
+the pinned Stage 1 dependency roots.
 
 CI currently enforces conservative non-regression floors of 95% function, 87%
 basic-block, and 70% branch-outcome coverage. These floors prevent accidental

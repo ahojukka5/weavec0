@@ -8,6 +8,8 @@ stages consume published SDKs.
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-07-25
+
 ### Added
 
 - Regression coverage for exact `INT64_MIN` emission.
@@ -18,9 +20,22 @@ stages consume published SDKs.
 - A pinned `weavec1` production corpus and bootstrap-surface inventory that
   reports unused WIR keywords and statically unreachable Stage 0 functions.
 - CI coverage non-regression floors and uploaded JSON/TSV audit reports.
+- Exact SDK file-list validation, runtime ABI symbol checks, and a packaged
+  compiler compile–assemble–static-link–execute smoke test.
+
+### Changed
+
+- The Stage 0 SDK is now a minimal build boundary containing only the static
+  compiler, the matching runtime library, `runtime.h`, and release metadata.
+- The SDK manifest is now consistently named `SDK-MANIFEST`, and `NOTICE` is
+  included as documented.
+- `weavec1` uses Stage 0 strictly as a build-time compiler and no longer embeds
+  Stage 0 implementation objects or bitcode in Stage 1 binaries.
 
 ### Removed
 
+- `weavec0-bootstrap.bc` and `weavec0-bootstrap.o` from the published SDK
+  contract. The immutable `v0.2.1` archives retain those legacy components.
 - Five implementation helpers proven unreachable from both the command-line
   compiler and the pinned Stage 1 corpus: `weave_slice_starts_with_cstr`,
   `weave_emit_type_after_name`, `weave_emit_expr_operand`,
@@ -49,6 +64,8 @@ stages consume published SDKs.
   `weavec-bootstrap` form the reproducible bootstrap chain.
 - Documented why LLVM basic-block and branch-outcome coverage are used instead
   of textual line coverage and how coverage evidence guides minimisation.
+- Documented the narrower Stage 0 compile-time boundary and the versioned
+  `v0.3.0` archive contract.
 
 ## [0.2.1] — 2026-07-24
 
@@ -99,11 +116,11 @@ The first public release.
 
 ### Changed
 
-- The emitter distinguishes `const_i32` and `const_i64` literals end to end.
-- The token-stream value channel widened from `i32` to `i64`.
-- The README was reframed for standalone publication and separate downstream
-  repositories.
-- `docs/source-style.md` became the canonical source-style document.
+- Renamed `tests/` to `test/`.
+- Removed the sibling-directory assumption. The initial release fetched and
+  built the pinned `weavec0 v0.2.0` source tree when `WEAVEC0` was unset.
+- Expanded the README into standalone build, test, architecture, and
+  contribution documentation.
 
 ### Fixed
 
