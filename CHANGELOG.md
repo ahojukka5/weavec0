@@ -19,6 +19,14 @@ stages consume published SDKs.
   reports unused WIR keywords and statically unreachable Stage 0 functions.
 - CI coverage non-regression floors and uploaded JSON/TSV audit reports.
 
+### Removed
+
+- Five implementation helpers proven unreachable from both the command-line
+  compiler and the pinned Stage 1 corpus: `weave_slice_starts_with_cstr`,
+  `weave_emit_type_after_name`, `weave_emit_expr_operand`,
+  `weave_source_init_copy`, and `weave_compile_buffer_to_buffer`.
+- The unused in-memory compilation path and its private source-copy helper.
+
 ### Fixed
 
 - Signed decimal formatting now emits `INT32_MIN` and `INT64_MIN` exactly instead
@@ -29,8 +37,6 @@ stages consume published SDKs.
 - Buffer and token growth paths now reject size arithmetic overflow.
 - Token accessors now return EOF or zero for out-of-range lookahead instead of
   reading uninitialised capacity slack.
-- In-memory compilation now copies bounded caller input into owned,
-  null-terminated storage before lexing.
 - Stage 0 now rejects `(core-version N)` values other than version 1.
 - Corrected the token layout documentation to describe the i64 literal-value
   channel accurately.

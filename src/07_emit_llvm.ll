@@ -556,59 +556,6 @@ fail:
 ; Local type lookup
 ; ----------------------------------------------------------------------------
 
-define i32 @weave_emit_type_after_name(ptr %ctx, i64 %name_start, i64 %name_len) {
-entry:
-  %source = call ptr @weave_emit_source(ptr %ctx)
-  %data = call ptr @weave_source_data(ptr %source)
-  %after_name = add i64 %name_start, %name_len
-  br label %skip_space
-
-skip_space:
-  %pos = phi i64 [%after_name, %entry], [%next_pos, %space]
-  %ptr = getelementptr inbounds i8, ptr %data, i64 %pos
-  %byte = load i8, ptr %ptr
-  %byte_i32 = zext i8 %byte to i32
-  %is_space = icmp eq i32 %byte_i32, 32
-  %is_newline = icmp eq i32 %byte_i32, 10
-  %is_tab = icmp eq i32 %byte_i32, 9
-  %space_a = or i1 %is_space, %is_newline
-  %space_any = or i1 %space_a, %is_tab
-  br i1 %space_any, label %space, label %check_ptr
-
-space:
-  %next_pos = add i64 %pos, 1
-  br label %skip_space
-
-check_ptr:
-  %is_p = icmp eq i32 %byte_i32, 112
-  br i1 %is_p, label %ptr_type, label %check_i64
-
-check_i64:
-  %next = add i64 %pos, 1
-  %next_ptr = getelementptr inbounds i8, ptr %data, i64 %next
-  %next_byte = load i8, ptr %next_ptr
-  %next_i32 = zext i8 %next_byte to i32
-  %is_i = icmp eq i32 %byte_i32, 105
-  %is_6 = icmp eq i32 %next_i32, 54
-  %is_i64 = and i1 %is_i, %is_6
-  br i1 %is_i64, label %i64_type, label %check_bool
-
-check_bool:
-  %is_b = icmp eq i32 %byte_i32, 98
-  br i1 %is_b, label %bool_type, label %i32_type
-
-ptr_type:
-  ret i32 58
-
-i64_type:
-  ret i32 39
-
-bool_type:
-  ret i32 72
-
-i32_type:
-  ret i32 32
-}
 
 define i32 @weave_emit_lookup_param_type(
   ptr %ctx,
@@ -821,28 +768,6 @@ immediate:
   %s2 = call i32 @weave_emit_i32(ptr %ctx, i32 %imm)
   %bad1 = icmp ne i32 %s2, 0
   br i1 %bad1, label %fail, label %success
-
-success:
-  ret i32 0
-
-fail:
-  ret i32 1
-}
-
-; ----------------------------------------------------------------------------
-; Emit an expression as an instruction operand.
-; ----------------------------------------------------------------------------
-
-define i32 @weave_emit_expr_operand(ptr %ctx, i64 %node_index) {
-entry:
-  %emitted = call i64 @weave_emit_expr(ptr %ctx, i64 %node_index)
-  %failed = icmp eq i64 %emitted, -9223372036854775808
-  br i1 %failed, label %fail, label %emit_operand
-
-emit_operand:
-  %status = call i32 @weave_emit_operand(ptr %ctx, i64 %emitted)
-  %operand_failed = icmp ne i32 %status, 0
-  br i1 %operand_failed, label %fail, label %success
 
 success:
   ret i32 0
