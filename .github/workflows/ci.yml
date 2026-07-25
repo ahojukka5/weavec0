@@ -2,9 +2,10 @@
 #
 # Continuous integration for weavec0.
 #
-# Builds weavec0 from source and runs the test ladder on Linux and macOS
-# using the platform's stable LLVM toolchain. Should finish in well under
-# a minute per job — the test ladder is intentionally tiny.
+# The normal matrix builds and executes the full correctness/golden ladder on
+# Linux and macOS. A separate Linux audit job measures the linked handwritten
+# LLVM implementation against both the test corpus and the pinned weavec1
+# production corpus.
 
 name: ci
 
@@ -52,3 +53,40 @@ jobs:
 
       - name: Build & run test ladder
         run: ./build.sh
+
+  coverage:
+    name: LLVM path & bootstrap-surface audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout weavec0
+        uses: actions/checkout@v4
+
+      - name: Install LLVM toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm clang
+          clang --version
+          llvm-as --version
+          llvm-dis --version
+
+      - name: Checkout pinned weavec1 corpus
+        run: |
+          commit="$(cat WEAVEC1_BOOTSTRAP_COMMIT)"
+          git clone --filter=blob:none --no-checkout \
+            https://github.com/ahojukka5/weavec1.git build/weavec1-audit
+          git -C build/weavec1-audit fetch --depth 1 origin "$commit"
+          git -C build/weavec1-audit checkout --detach FETCH_HEAD
+          test "$(git -C build/weavec1-audit rev-parse HEAD)" = "$commit"
+
+      - name: Measure LLVM execution and bootstrap surface
+        run: bash scripts/run-coverage.sh --weavec1-dir build/weavec1-audit
+
+      - name: Upload audit reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: weavec0-bootstrap-audit
+          path: |
+            build/coverage/coverage-map.tsv
+            build/coverage/coverage-report.json
+            build/coverage/bootstrap-surface.json
