@@ -4,9 +4,9 @@ set -euo pipefail
 
 # weavec0 — Stage 0 bootstrap compiler build and semantic/golden ladder.
 #
-# The ordinary handwritten modules are linked first. 07_scope_override.ll is
-# then linked with llvm-link --override so a small, auditable fix module can
-# replace selected emitter entry points without copying the 4,000-line emitter.
+# The ordinary handwritten modules are linked first. Small override modules are
+# then applied in dependency order so scoped binding and module-symbol fixes stay
+# separately auditable without copying the 4,000-line emitter.
 
 REGEN_GOLDENS=0
 for arg in "$@"; do
@@ -36,10 +36,12 @@ MANIFEST="$TEST_DIR/manifest.txt"
 
 WEAVEC0="$ROOT/weavec0"
 WEAVEC0_BASE_BC="$BUILD_DIR/weavec0-base.bc"
+WEAVEC0_SCOPED_BC="$BUILD_DIR/weavec0-scoped.bc"
 WEAVEC0_BC="$BUILD_DIR/weavec0.bc"
 PRELUDE_LL="$BUILD_DIR/module_prelude.ll"
 DECLS_LL="$BUILD_DIR/module_declarations.ll"
 SCOPE_OVERRIDE="$SRC_DIR/07_scope_override.ll"
+SYMBOL_OVERRIDE="$SRC_DIR/07_symbol_override.ll"
 
 MODULES=(
   "$SRC_DIR/01_runtime_bindings.ll"
@@ -128,15 +130,19 @@ assemble_module() {
 }
 
 link_compiler() {
-  local override_bc="$1"
-  shift
+  local scope_override_bc="$1"
+  local symbol_override_bc="$2"
+  shift 2
   local base_bitcodes=("$@")
 
   log "link ordinary bitcode"
   llvm-link "${base_bitcodes[@]}" -o "$WEAVEC0_BASE_BC"
 
   log "apply function-scope override"
-  llvm-link "$WEAVEC0_BASE_BC" --override "$override_bc" -o "$WEAVEC0_BC"
+  llvm-link "$WEAVEC0_BASE_BC" --override "$scope_override_bc" -o "$WEAVEC0_SCOPED_BC"
+
+  log "apply module-symbol override"
+  llvm-link "$WEAVEC0_SCOPED_BC" --override "$symbol_override_bc" -o "$WEAVEC0_BC"
 
   log "link executable"
   clang -Wno-override-module "$WEAVEC0_BC" "$ROOT/runtime.c" -o "$WEAVEC0"
@@ -151,6 +157,7 @@ build_weavec0() {
   llvm-link --help 2>&1 | grep -q -- '--override' || \
     fail 'llvm-link does not support --override'
   [[ -f "$SCOPE_OVERRIDE" ]] || fail "missing scope override: $SCOPE_OVERRIDE"
+  [[ -f "$SYMBOL_OVERRIDE" ]] || fail "missing symbol override: $SYMBOL_OVERRIDE"
 
   extract_module_prelude
   extract_module_decls
@@ -160,9 +167,10 @@ build_weavec0() {
   for module in "${MODULES[@]}"; do
     base_bitcodes+=("$(assemble_module "$module")")
   done
-  local override_bc
-  override_bc="$(assemble_module "$SCOPE_OVERRIDE")"
-  link_compiler "$override_bc" "${base_bitcodes[@]}"
+  local scope_override_bc symbol_override_bc
+  scope_override_bc="$(assemble_module "$SCOPE_OVERRIDE")"
+  symbol_override_bc="$(assemble_module "$SYMBOL_OVERRIDE")"
+  link_compiler "$scope_override_bc" "$symbol_override_bc" "${base_bitcodes[@]}"
 }
 
 run_correctness_case() {
@@ -201,7 +209,7 @@ run_compile_fail_case() {
   local name="$1"
   local expected_message="$2"
   local src="$TEST_DIR/${name}.wir"
-  local ll="$BUILD_DIR/${name}.ll"
+  local 9="$BUILD_DIR/${name}.ll"
   local stderr="$BUILD_DIR/${name}.stderr"
 
   [[ -f "$src" ]] || fail "missing test source: $src"
