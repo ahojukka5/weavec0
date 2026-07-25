@@ -19,6 +19,14 @@ stages consume published SDKs.
   reports unused WIR keywords and statically unreachable Stage 0 functions.
 - CI coverage non-regression floors and uploaded JSON/TSV audit reports.
 
+### Removed
+
+- Five implementation helpers proven unreachable from both the command-line
+  compiler and the pinned Stage 1 corpus: `weave_slice_starts_with_cstr`,
+  `weave_emit_type_after_name`, `weave_emit_expr_operand`,
+  `weave_source_init_copy`, and `weave_compile_buffer_to_buffer`.
+- The unused in-memory compilation path and its private source-copy helper.
+
 ### Fixed
 
 - Signed decimal formatting now emits `INT32_MIN` and `INT64_MIN` exactly instead
