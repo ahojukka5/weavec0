@@ -6,6 +6,10 @@ weavec0
 *.bc
 *.o
 
+# Python audit caches.
+__pycache__/
+*.pyc
+
 # Editor / OS noise.
 .DS_Store
 *.swp
