@@ -102,10 +102,11 @@ run_positive declared-extern-call 42 '
     (call_i32 puts (const_string_ptr "symbol target ok"))
     (return (const_i32 42))))))'
 
-# `print` is the one Stage 0 pseudo-call. It lowers to puts and intentionally
-# has no source-level declaration, so module validation must preserve it.
+# `print` is the one Stage 0 pseudo-call. It does not name a WIR declaration,
+# although its lowering still requires the ordinary admitted puts declaration.
 run_positive builtin-print 42 '
 (core-module (core-version 1) (decls
+  (extern puts (params (text ptr)) (returns i32))
   (fn main (params) (returns i32) (do
     (print (const_string "builtin target ok"))
     (return (const_i32 42))))))'
