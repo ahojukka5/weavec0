@@ -29,7 +29,7 @@ not embedded in the Stage 1 binary.
 
 The `v0.2.1` archives included legacy `weavec0-bootstrap.bc` and
 `weavec0-bootstrap.o` components. They remain immutable historical release
-assets but are not required by current `weavec1`. Version `v0.3.0` removes them
+assets but are not required by current `weavec1`. Version `v0.3.0` removed them
 from the supported archive contract.
 
 ## Platform variants
@@ -54,3 +54,5 @@ creating the archive.
 The release workflow reads `VERSION`. When `master` contains a version for which
 no GitHub Release exists, it creates tag `v<VERSION>` and publishes both SDK
 archives together with `SHA256SUMS`.
+
+See [architecture](architecture.md) and [releasing](releasing.md).

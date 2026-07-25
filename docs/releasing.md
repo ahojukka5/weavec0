@@ -41,18 +41,17 @@ weavec0-vX.Y.Z-linux-x86_64-musl.tar.gz
 SHA256SUMS
 ```
 
-The current version is stored in [`VERSION`](VERSION).
+The current version is stored in [`VERSION`](../VERSION).
 
 ## Versioning the archive contract
 
-Removing `weavec0-bootstrap.bc` and `weavec0-bootstrap.o` changes the published
+Removing `weavec0-bootstrap.bc` and `weavec0-bootstrap.o` changed the published
 archive layout. The minimal layout therefore begins at `v0.3.0`; existing
 `v0.2.1` release assets remain immutable.
 
-A downstream pin may be updated to `v0.4.0` only after the release exists. The
-current `weavec1` build already accepts the minimal SDK because it uses Stage 0
-only as a build-time compiler and links its own generated modules with the
-runtime library.
+A downstream pin may be updated only after the intended release exists. Current
+`weavec1` builds use Stage 0 only as a build-time compiler and link their own
+generated modules with the matching runtime library.
 
 ## Automatic release flow
 
@@ -89,14 +88,16 @@ sudo apt-get install -y binutils clang file llvm musl-tools
 Build and validate the source compiler:
 
 ```bash
+python3 scripts/check_docs.py
 ./build.sh
 ```
 
-Create either SDK archive:
+Create either SDK archive using the version selected by `VERSION`:
 
 ```bash
-bash scripts/package-linux-release.sh glibc v0.4.0 dist
-bash scripts/package-linux-release.sh musl v0.4.0 dist
+version="v$(tr -d '[:space:]' < VERSION)"
+bash scripts/package-linux-release.sh glibc "$version" dist
+bash scripts/package-linux-release.sh musl "$version" dist
 ```
 
 The packaging script verifies the exact archive contents, runtime ABI, static
@@ -114,8 +115,8 @@ sha256sum --check SHA256SUMS
 Extract and use the compiler:
 
 ```bash
-tar -xzf weavec0-v0.4.0-linux-x86_64-musl.tar.gz
-cd weavec0-v0.4.0-linux-x86_64-musl
+tar -xzf weavec0-vX.Y.Z-linux-x86_64-musl.tar.gz
+cd weavec0-vX.Y.Z-linux-x86_64-musl
 bin/weavec0 input.wir output.ll
 ```
 
@@ -133,12 +134,12 @@ the same input.
 
 Before changing `VERSION` or publishing a new SDK:
 
-- confirm the complete source ladder is green;
+- confirm the documentation audit and complete source ladder are green;
 - review any regenerated LLVM goldens;
 - confirm runtime ABI changes are documented;
 - confirm the package file list matches the intended versioned contract;
 - confirm downstream dependency pins are updated only after publication;
 - inspect both archive manifests and `SHA256SUMS`.
 
-See [`docs/BOOTSTRAP_SDK.md`](docs/BOOTSTRAP_SDK.md) for the downstream binary
-contract.
+See [bootstrap SDK](bootstrap-sdk.md), [architecture](architecture.md), and
+[WIR bootstrap profile](wir.md).

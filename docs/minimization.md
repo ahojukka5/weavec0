@@ -15,3 +15,12 @@ packaging are not optional language features.
 The bootstrap-surface audit is the removal gate. It must compile every pinned
 Stage 1 module, report no Stage 0-only keyword, report no unreachable Stage 0
 function, and find no residual implementation of removed compatibility forms.
+
+Removal still requires compatibility review. A form or runtime behavior covered
+by the published bootstrap-profile contract cannot disappear silently merely
+because a single pinned corpus stops using it. Such a change requires an
+intentional profile or ABI version transition and coordinated downstream
+validation.
+
+See [architecture](architecture.md), [WIR bootstrap profile](wir.md), and
+[coverage](coverage.md).

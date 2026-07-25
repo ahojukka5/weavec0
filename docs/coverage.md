@@ -104,6 +104,9 @@ evidence agree:
 - dynamically uncovered by both the tests and the Stage 1 compilation corpus;
 - not required by the published WIR or runtime compatibility contract.
 
-The final condition is essential. Removing an admitted Stage 0 bootstrap-profile form is a contract
-change even when current `weavec1` sources do not use it. Such removals require an intentional bootstrap-profile version transition,
-not a silent compatibility break.
+The final condition is essential. Removing an admitted Stage 0
+bootstrap-profile form is a contract change even when current `weavec1` sources
+do not use it. Such removals require an intentional bootstrap-profile version
+transition, not a silent compatibility break.
+
+See [architecture](architecture.md) and [minimization](minimization.md).
