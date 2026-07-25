@@ -31,6 +31,16 @@ jobs:
         id: patch
         shell: bash
         run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/apply-integer-range-fix.py')
+          text = path.read_text()
+          old = "  ret i32 2147483647\n}\n'''\n)"
+          new = "  ret i32 2147483647\n}\n\n'''\n)"
+          if text.count(old) != 1:
+              raise SystemExit('expected one INT32_MAX golden fixture target')
+          path.write_text(text.replace(old, new, 1))
+          PY
           set +e
           python3 scripts/apply-integer-range-fix.py > /tmp/integer-patch.log 2>&1
           status=$?
