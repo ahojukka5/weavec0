@@ -8,13 +8,27 @@ stages consume published SDKs.
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-07-25
+
 ### Added
 
 - A generated 99-case parser-negative matrix covering too-few and too-many
   operands across fixed-arity operators, malformed unary and constant forms,
   missing call targets, and malformed statements.
-- The same generated matrix is included in both the normal test ladder and the
-  instrumented LLVM coverage workload.
+- A generated 37-case structural-negative matrix covering malformed modules,
+  functions, parameters, conditionals, loops, and blocks.
+- A generated 53-case extern-signature matrix covering parameter-count,
+  parameter-type, return-type, missing, reordered, duplicate, malformed, and
+  extra-form failures across every admitted extern ABI.
+- All generated negative matrices are included in both the normal test ladder
+  and the instrumented LLVM coverage workload.
+
+### Fixed
+
+- Admitted extern declarations now require the exact parameter and return
+  signature documented by the Stage 0 runtime ABI. Missing, reordered,
+  duplicate, malformed, extra, and name/signature-mismatched forms fail before
+  the parser discards their signature syntax.
 
 ## [0.3.0] — 2026-07-25
 
@@ -137,14 +151,3 @@ The first public release.
 - Large `const_i64` literals no longer lose their high bits in the lexer.
 
 ## [0.0.0] — pre-publication polish
-
-Internal milestones before the first public tag:
-
-- Renamed `ll/` to `src/` and `tests/` to `test/`.
-- Refactored `build.sh`, added `--regen-goldens`, and moved ladder enumeration
-  to `test/manifest.txt`.
-- Added structured documentation to every LLVM module and cross-module entry
-  point.
-- Expanded the original ladder and fixed deterministic LLVM indentation.
-- Limited emitted extern declarations to symbols actually present in the WIR
-  input.
