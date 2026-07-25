@@ -47,6 +47,11 @@ WEAVEC0_COVERAGE_OUT="$RAW_TSV" \
   bash "$ROOT/scripts/run-binding-scope-tests.sh" \
     "$INSTRUMENTED_BIN" "$BUILD_DIR/binding-scope"
 
+printf '[coverage] extend workload with module symbol cases\n' >&2
+WEAVEC0_COVERAGE_OUT="$RAW_TSV" \
+  bash "$ROOT/scripts/run-module-symbol-tests.sh" \
+    "$INSTRUMENTED_BIN" "$BUILD_DIR/module-symbols"
+
 printf '[coverage] regenerate aggregate report\n' >&2
 python3 "$ROOT/scripts/report_llvm_coverage.py" \
   --map "$MAP_TSV" \

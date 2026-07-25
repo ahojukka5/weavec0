@@ -8,6 +8,31 @@ stages consume published SDKs.
 
 ## [Unreleased]
 
+## [0.3.4] — 2026-07-25
+
+### Added
+
+- An eleven-case module-symbol ladder covering forward function calls, declared
+  extern calls, the built-in `print` lowering, all five undefined call
+  categories, duplicate functions, duplicate externs, and function/extern name
+  collisions.
+- The same symbol workload is included in the instrumented LLVM coverage
+  extension.
+
+### Changed
+
+- Functions and externs now share one validated module declaration namespace.
+  Forward calls remain valid because validation sees the complete parsed AST.
+- The internal `print` pseudo-call is explicitly admitted without requiring a
+  source-level declaration; every other call target must resolve to a function
+  or extern declaration.
+
+### Fixed
+
+- Undefined call targets now fail before any LLVM module text is emitted.
+- Duplicate functions, duplicate externs, and function/extern name collisions
+  are rejected deterministically instead of producing invalid LLVM IR.
+
 ## [0.3.3] — 2026-07-25
 
 ### Added
