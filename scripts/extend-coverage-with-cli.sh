@@ -37,6 +37,11 @@ WEAVEC0_COVERAGE_OUT="$RAW_TSV" \
   bash "$ROOT/scripts/run-extern-signature-negative-matrix.sh" \
     "$INSTRUMENTED_BIN" "$BUILD_DIR/extern-signature-negative-matrix"
 
+printf '[coverage] extend workload with function-local binding cases\n' >&2
+WEAVEC0_COVERAGE_OUT="$RAW_TSV" \
+  bash "$ROOT/scripts/run-binding-scope-tests.sh" \
+    "$INSTRUMENTED_BIN" "$BUILD_DIR/binding-scope"
+
 printf '[coverage] regenerate aggregate report\n' >&2
 python3 "$ROOT/scripts/report_llvm_coverage.py" \
   --map "$MAP_TSV" \
