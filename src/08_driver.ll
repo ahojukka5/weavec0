@@ -5,79 +5,80 @@
 ; Pipeline orchestration for the Stage 0 bootstrap compiler.
 ;
 ; Responsibilities:
-;   - read the input source file via weave_rt_read_file (08 owns the buffer)
-;   - initialise a %weave.Source, a %weave.Tokens, a %weave.Ast, and a
-;     %weave.Buffer for the emitted text
-;   - drive the pipeline: lex -> parse -> emit, propagating failures
-;   - select an error message per failure kind and route it to stderr via
-;     weave_driver_print_error
-;   - on success, write the emitted buffer to the output path; on any
-;     failure, free everything cleanly and return non-zero without writing
-;
-; Boundary:
-;   The driver contains no syntax knowledge. It only wires modules
-;   together. Diagnostic strings live in 01_runtime_bindings.ll; the
-;   pipeline stages own all interesting logic.
+;   - read or copy the input into an owned, null-terminated source buffer
+;   - initialise source, token, AST, and output storage
+;   - drive lex -> version validation -> parse -> emit
+;   - free every partially constructed stage on failure
 ; =============================================================================
 
 ; ----------------------------------------------------------------------------
-; Source initialization
+; Source ownership
 ; ----------------------------------------------------------------------------
-;
-; The source owns the buffer returned by weave_rt_read_file.
-; The caller must eventually call weave_source_free.
-
 
 define void @weave_source_init(ptr %source, ptr %data, i64 %length) {
 entry:
   %data_field = call ptr @weave_source_data_ptr(ptr %source)
   %length_field = call ptr @weave_source_length_ptr(ptr %source)
-
   store ptr %data, ptr %data_field
   store i64 %length, ptr %length_field
-
   ret void
 }
-
 
 define void @weave_source_free(ptr %source) {
 entry:
   %data = call ptr @weave_source_data(ptr %source)
   %has_data = icmp ne ptr %data, null
-  br i1 %has_data, label %free_data, label %done
+  br i1 %has_data, label %free_data, label %reset
 
 free_data:
   call void @free(ptr %data)
-  br label %done
+  br label %reset
 
-done:
+reset:
   %data_field = call ptr @weave_source_data_ptr(ptr %source)
   %length_field = call ptr @weave_source_length_ptr(ptr %source)
-
   store ptr null, ptr %data_field
   store i64 0, ptr %length_field
-
   ret void
 }
 
-; ----------------------------------------------------------------------------
-; Diagnostic helpers
-; ----------------------------------------------------------------------------
-;
-; Diagnostics are intentionally blunt in Stage 0. Beautiful diagnostics belong
-; later. The bridge must first be crossable.
+; Copy a bounded caller buffer into source-owned storage and append the sentinel
+; byte required by libc-shaped helpers used inside the bootstrap lexer.
+define i32 @weave_source_init_copy(ptr %source, ptr %data, i64 %length) {
+entry:
+  %data_null = icmp eq ptr %data, null
+  %length_overflow = icmp eq i64 %length, -1
+  %bad = or i1 %data_null, %length_overflow
+  br i1 %bad, label %fail, label %allocate
 
+allocate:
+  %needed = add i64 %length, 1
+  %owned = call ptr @malloc(i64 %needed)
+  %allocation_failed = icmp eq ptr %owned, null
+  br i1 %allocation_failed, label %fail, label %copy_or_terminate
 
-; weave_driver_print_error
-;
-; Print a null-terminated diagnostic message to stderr via fprintf. Used by
-; every error path in the driver. The message string is expected to include
-; its own trailing newline.
-;
-; Parameters:
-;   message - pointer to a null-terminated cstr (typically one of the
-;             @weave.str.err_* constants from 01_runtime_bindings.ll, or a
-;             matching constant from another module).
+copy_or_terminate:
+  %empty = icmp eq i64 %length, 0
+  br i1 %empty, label %terminate, label %copy
+
+copy:
+  call ptr @memcpy(ptr %owned, ptr %data, i64 %length)
+  br label %terminate
+
+terminate:
+  %sentinel = getelementptr inbounds i8, ptr %owned, i64 %length
+  store i8 0, ptr %sentinel
+  call void @weave_source_init(ptr %source, ptr %owned, i64 %length)
+  ret i32 0
+
+fail:
+  ret i32 1
+}
+
+; ----------------------------------------------------------------------------
+; Diagnostics
+; ----------------------------------------------------------------------------
+
 define void @weave_driver_print_error(ptr %message) {
 entry:
   %stderr = call ptr @weave_rt_stderr()
@@ -86,28 +87,51 @@ entry:
 }
 
 ; ----------------------------------------------------------------------------
-; weave_compile_file
-;
-; End-to-end pipeline driver: read source from disk, lex, parse, emit, and
-; write the result. This is the function `main` calls and is the canonical
-; meaning of "running weavec0 on one file".
-;
-; Parameters:
-;   input_path  - null-terminated path to the .wir source file.
-;   output_path - null-terminated path where the .ll file will be written.
-;
-; Returns:
-;   0 on success; output_path contains the emitted LLVM IR.
-;   1 on any failure (null paths, read error, lex/parse/emit error, write
-;     error). On failure no output file is written and an error message
-;     has already been printed to stderr.
-;
-; Notes:
-;   On every error path the driver tears down whatever resources it managed
-;   to allocate before failing — source bytes, token stream, AST array,
-;   output buffer — so callers do not need to know about partial state.
+; Stable WIR contract validation
 ; ----------------------------------------------------------------------------
 
+; Validate the fixed token prefix:
+;   ( core-module ( core-version 1 ) ...
+; This is a pipeline-contract check, not general parsing.
+define i32 @weave_validate_core_version(ptr %tokens) {
+entry:
+  %count = call i64 @weave_tokens_count(ptr %tokens)
+  %has_prefix = icmp uge i64 %count, 6
+  br i1 %has_prefix, label %read_prefix, label %unsupported
+
+read_prefix:
+  %kind0 = call i32 @weave_token_kind(ptr %tokens, i64 0)
+  %kind1 = call i32 @weave_token_kind(ptr %tokens, i64 1)
+  %kind2 = call i32 @weave_token_kind(ptr %tokens, i64 2)
+  %kind3 = call i32 @weave_token_kind(ptr %tokens, i64 3)
+  %kind4 = call i32 @weave_token_kind(ptr %tokens, i64 4)
+  %kind5 = call i32 @weave_token_kind(ptr %tokens, i64 5)
+  %version = call i64 @weave_token_value(ptr %tokens, i64 4)
+  %ok0 = icmp eq i32 %kind0, 1
+  %ok1 = icmp eq i32 %kind1, 25
+  %ok2 = icmp eq i32 %kind2, 1
+  %ok3 = icmp eq i32 %kind3, 26
+  %ok4 = icmp eq i32 %kind4, 4
+  %ok5 = icmp eq i32 %kind5, 2
+  %version_ok = icmp eq i64 %version, 1
+  %a = and i1 %ok0, %ok1
+  %b = and i1 %ok2, %ok3
+  %c = and i1 %ok4, %ok5
+  %ab = and i1 %a, %b
+  %abc = and i1 %ab, %c
+  %all_ok = and i1 %abc, %version_ok
+  br i1 %all_ok, label %supported, label %unsupported
+
+supported:
+  ret i32 1
+
+unsupported:
+  ret i32 0
+}
+
+; ----------------------------------------------------------------------------
+; File-to-file compilation
+; ----------------------------------------------------------------------------
 
 define i32 @weave_compile_file(ptr %input_path, ptr %output_path) {
 entry:
@@ -119,7 +143,6 @@ entry:
 read_source:
   %source_len_storage = alloca i64
   store i64 0, ptr %source_len_storage
-
   %source_data = call ptr @weave_rt_read_file(ptr %input_path, ptr %source_len_storage)
   %read_failed = icmp eq ptr %source_data, null
   br i1 %read_failed, label %read_error, label %init_source
@@ -131,10 +154,8 @@ read_error:
 
 init_source:
   %source_len = load i64, ptr %source_len_storage
-
   %source = alloca %weave.Source
   call void @weave_source_init(ptr %source, ptr %source_data, i64 %source_len)
-
   %tokens = alloca %weave.Tokens
   %tokens_status = call i32 @weave_tokens_init(ptr %tokens)
   %tokens_failed = icmp ne i32 %tokens_status, 0
@@ -143,11 +164,21 @@ init_source:
 lex:
   %lex_status = call i32 @weave_lex(ptr %source, ptr %tokens)
   %lex_failed = icmp ne i32 %lex_status, 0
-  br i1 %lex_failed, label %lex_error, label %init_ast
+  br i1 %lex_failed, label %lex_error, label %validate_version
 
 lex_error:
   %msg_lex = call ptr @weave_cstr_err_lex()
   call void @weave_driver_print_error(ptr %msg_lex)
+  br label %cleanup_tokens_source_fail
+
+validate_version:
+  %version_ok_status = call i32 @weave_validate_core_version(ptr %tokens)
+  %version_bad = icmp eq i32 %version_ok_status, 0
+  br i1 %version_bad, label %version_error, label %init_ast
+
+version_error:
+  %msg_version = call ptr @weave_cstr_err_parse()
+  call void @weave_driver_print_error(ptr %msg_version)
   br label %cleanup_tokens_source_fail
 
 init_ast:
@@ -241,26 +272,12 @@ fail:
 }
 
 ; ----------------------------------------------------------------------------
-; weave_compile_buffer_to_buffer
+; In-memory compilation
 ;
-; In-memory variant of weave_compile_file. Lexes/parses/emits a source
-; buffer the caller already holds and writes the result into a Buffer the
-; caller already holds. Useful for tests and self-host smoke checks where
-; round-tripping through the filesystem adds nothing.
-;
-; Parameters:
-;   source_data - pointer to source bytes (need not be null-terminated).
-;   source_len  - byte length of the source.
-;   output      - %weave.Buffer* initialised via weave_buffer_init. The
-;                 caller owns it; on success it contains the emitted IR.
-;
-; Returns:
-;   0 on success.
-;   1 on failure (null args, lex/parse/emit error). Unlike
-;     weave_compile_file this path does NOT print to stderr — callers in
-;     test contexts can drive their own diagnostics.
+; The caller's bytes may be tightly bounded and need not have a sentinel byte.
+; Stage 0 therefore copies them into owned null-terminated storage before the
+; lexer invokes libc-shaped helpers such as integer conversion.
 ; ----------------------------------------------------------------------------
-
 
 define i32 @weave_compile_buffer_to_buffer(
   ptr %source_data,
@@ -275,45 +292,62 @@ entry:
 
 init_source:
   %source = alloca %weave.Source
-  call void @weave_source_init(ptr %source, ptr %source_data, i64 %source_len)
+  %source_status = call i32 @weave_source_init_copy(
+    ptr %source,
+    ptr %source_data,
+    i64 %source_len
+  )
+  %source_failed = icmp ne i32 %source_status, 0
+  br i1 %source_failed, label %fail, label %init_tokens
 
+init_tokens:
   %tokens = alloca %weave.Tokens
   %tokens_status = call i32 @weave_tokens_init(ptr %tokens)
   %tokens_failed = icmp ne i32 %tokens_status, 0
-  br i1 %tokens_failed, label %fail, label %lex
+  br i1 %tokens_failed, label %cleanup_source_fail, label %lex
 
 lex:
   %lex_status = call i32 @weave_lex(ptr %source, ptr %tokens)
   %lex_failed = icmp ne i32 %lex_status, 0
-  br i1 %lex_failed, label %cleanup_tokens_fail, label %init_ast
+  br i1 %lex_failed, label %cleanup_tokens_source_fail, label %validate_version
+
+validate_version:
+  %version_ok_status = call i32 @weave_validate_core_version(ptr %tokens)
+  %version_bad = icmp eq i32 %version_ok_status, 0
+  br i1 %version_bad, label %cleanup_tokens_source_fail, label %init_ast
 
 init_ast:
   %ast = alloca %weave.Ast
   %ast_status = call i32 @weave_ast_init(ptr %ast)
   %ast_failed = icmp ne i32 %ast_status, 0
-  br i1 %ast_failed, label %cleanup_tokens_fail, label %parse
+  br i1 %ast_failed, label %cleanup_tokens_source_fail, label %parse
 
 parse:
   %program_node = call i64 @weave_parse(ptr %tokens, ptr %ast)
   %parse_failed = icmp slt i64 %program_node, 0
-  br i1 %parse_failed, label %cleanup_ast_tokens_fail, label %emit
+  br i1 %parse_failed, label %cleanup_ast_tokens_source_fail, label %emit
 
 emit:
   %emit_status = call i32 @weave_emit_llvm(ptr %source, ptr %ast, i64 %program_node, ptr %output)
   %emit_failed = icmp ne i32 %emit_status, 0
-  br i1 %emit_failed, label %cleanup_ast_tokens_fail, label %cleanup_success
+  br i1 %emit_failed, label %cleanup_ast_tokens_source_fail, label %cleanup_success
 
 cleanup_success:
   call void @weave_ast_free(ptr %ast)
   call void @weave_tokens_free(ptr %tokens)
+  call void @weave_source_free(ptr %source)
   ret i32 0
 
-cleanup_ast_tokens_fail:
+cleanup_ast_tokens_source_fail:
   call void @weave_ast_free(ptr %ast)
-  br label %cleanup_tokens_fail
+  br label %cleanup_tokens_source_fail
 
-cleanup_tokens_fail:
+cleanup_tokens_source_fail:
   call void @weave_tokens_free(ptr %tokens)
+  br label %cleanup_source_fail
+
+cleanup_source_fail:
+  call void @weave_source_free(ptr %source)
   br label %fail
 
 fail:

@@ -2,6 +2,6 @@
 
 define i32 @main() {
 entry:
-  ret i32 -2147483648
+  ret i32 42
 }
 

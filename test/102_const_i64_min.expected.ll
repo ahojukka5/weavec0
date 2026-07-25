@@ -2,6 +2,8 @@
 
 define i32 @main() {
 entry:
-  ret i32 -2147483648
+  %t0 = add i64 0, -9223372036854775808
+  %t1 = trunc i64 %t0 to i32
+  ret i32 %t1
 }
 

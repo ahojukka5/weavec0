@@ -8,6 +8,28 @@ stages consume published SDKs.
 
 ## [Unreleased]
 
+### Added
+
+- Regression coverage for exact `INT64_MIN` emission.
+- A token-growth case that crosses the initial parallel-array capacity.
+- A negative case for unsupported WIR core versions.
+
+### Fixed
+
+- Signed decimal formatting now emits `INT32_MIN` and `INT64_MIN` exactly instead
+  of overflowing while computing their magnitudes.
+- Token-stream growth now allocates and copies all replacement arrays before
+  committing them, so a partial allocation failure cannot leave dangling
+  pointers or partially updated storage.
+- Buffer and token growth paths now reject size arithmetic overflow.
+- Token accessors now return EOF or zero for out-of-range lookahead instead of
+  reading uninitialised capacity slack.
+- In-memory compilation now copies bounded caller input into owned,
+  null-terminated storage before lexing.
+- Stage 0 now rejects `(core-version N)` values other than version 1.
+- Corrected the token layout documentation to describe the i64 literal-value
+  channel accurately.
+
 ### Documentation
 
 - Updated the compiler-chain terminology after `weavefront` was renamed to

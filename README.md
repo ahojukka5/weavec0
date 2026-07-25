@@ -24,7 +24,7 @@ small, auditable, deterministic, and capable of building `weavec1`.
 
 ## Current status
 
-- The source build passes 101 cases: 91 positive cases and 10 expected failures.
+- The source test ladder contains 104 cases: 93 positive cases and 11 expected failures.
 - Linux x86-64 bootstrap SDKs are published for glibc and musl.
 - `weavec1` builds from the published Stage 0 SDK without rebuilding this
   repository on Linux.

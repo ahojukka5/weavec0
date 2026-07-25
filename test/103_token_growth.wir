@@ -1,0 +1,119 @@
+; 103_token_growth.wir
+; purpose: forces the token array to grow beyond its initial capacity.
+; verifies growth preserves every token while compiling a semantically tiny module.
+; expected runtime behavior: process exits with code 42.
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (do) ;; empty block 1
+        (do) ;; empty block 2
+        (do) ;; empty block 3
+        (do) ;; empty block 4
+        (do) ;; empty block 5
+        (do) ;; empty block 6
+        (do) ;; empty block 7
+        (do) ;; empty block 8
+        (do) ;; empty block 9
+        (do) ;; empty block 10
+        (do) ;; empty block 11
+        (do) ;; empty block 12
+        (do) ;; empty block 13
+        (do) ;; empty block 14
+        (do) ;; empty block 15
+        (do) ;; empty block 16
+        (do) ;; empty block 17
+        (do) ;; empty block 18
+        (do) ;; empty block 19
+        (do) ;; empty block 20
+        (do) ;; empty block 21
+        (do) ;; empty block 22
+        (do) ;; empty block 23
+        (do) ;; empty block 24
+        (do) ;; empty block 25
+        (do) ;; empty block 26
+        (do) ;; empty block 27
+        (do) ;; empty block 28
+        (do) ;; empty block 29
+        (do) ;; empty block 30
+        (do) ;; empty block 31
+        (do) ;; empty block 32
+        (do) ;; empty block 33
+        (do) ;; empty block 34
+        (do) ;; empty block 35
+        (do) ;; empty block 36
+        (do) ;; empty block 37
+        (do) ;; empty block 38
+        (do) ;; empty block 39
+        (do) ;; empty block 40
+        (do) ;; empty block 41
+        (do) ;; empty block 42
+        (do) ;; empty block 43
+        (do) ;; empty block 44
+        (do) ;; empty block 45
+        (do) ;; empty block 46
+        (do) ;; empty block 47
+        (do) ;; empty block 48
+        (do) ;; empty block 49
+        (do) ;; empty block 50
+        (do) ;; empty block 51
+        (do) ;; empty block 52
+        (do) ;; empty block 53
+        (do) ;; empty block 54
+        (do) ;; empty block 55
+        (do) ;; empty block 56
+        (do) ;; empty block 57
+        (do) ;; empty block 58
+        (do) ;; empty block 59
+        (do) ;; empty block 60
+        (do) ;; empty block 61
+        (do) ;; empty block 62
+        (do) ;; empty block 63
+        (do) ;; empty block 64
+        (do) ;; empty block 65
+        (do) ;; empty block 66
+        (do) ;; empty block 67
+        (do) ;; empty block 68
+        (do) ;; empty block 69
+        (do) ;; empty block 70
+        (do) ;; empty block 71
+        (do) ;; empty block 72
+        (do) ;; empty block 73
+        (do) ;; empty block 74
+        (do) ;; empty block 75
+        (do) ;; empty block 76
+        (do) ;; empty block 77
+        (do) ;; empty block 78
+        (do) ;; empty block 79
+        (do) ;; empty block 80
+        (do) ;; empty block 81
+        (do) ;; empty block 82
+        (do) ;; empty block 83
+        (do) ;; empty block 84
+        (do) ;; empty block 85
+        (do) ;; empty block 86
+        (do) ;; empty block 87
+        (do) ;; empty block 88
+        (do) ;; empty block 89
+        (do) ;; empty block 90
+        (do) ;; empty block 91
+        (do) ;; empty block 92
+        (do) ;; empty block 93
+        (do) ;; empty block 94
+        (do) ;; empty block 95
+        (do) ;; empty block 96
+        (do) ;; empty block 97
+        (do) ;; empty block 98
+        (do) ;; empty block 99
+        (do) ;; empty block 100
+        (return
+          (const_i32 42)
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

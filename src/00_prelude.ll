@@ -72,7 +72,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; kinds    : ptr to i32 token kinds
 ; starts   : ptr to i64 byte offsets into source
 ; lengths  : ptr to i64 token byte lengths
-; values   : ptr to i32 integer values, used only by integer tokens
+; values   : ptr to i64 integer values, used only by integer tokens
 ; count    : number of tokens currently stored
 ; capacity : number of tokens allocated
 %weave.Tokens = type { ptr, ptr, ptr, ptr, i64, i64 }
