@@ -27,6 +27,19 @@ jobs:
           sudo apt-get update -qq >/dev/null
           sudo apt-get install -y -qq llvm clang >/dev/null
 
+      - name: Correct final-function replacement newline
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/apply-module-symbol-validation.py')
+          text = path.read_text()
+          old = 'return text[:start] + replacement.rstrip() + "\\n\\n" + text[end:]'
+          new = 'return text[:start] + replacement.rstrip() + "\\n" + text[end:]'
+          if text.count(old) != 1:
+              raise SystemExit('expected one replacement helper target')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
       - name: Apply and validate integrated fix
         id: patch
         shell: bash
