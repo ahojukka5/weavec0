@@ -87,6 +87,49 @@ entry:
 }
 
 ; ----------------------------------------------------------------------------
+; Stable WIR contract validation
+; ----------------------------------------------------------------------------
+
+; Validate the fixed token prefix:
+;   ( core-module ( core-version 1 ) ...
+; This is a pipeline-contract check, not general parsing.
+define i32 @weave_validate_core_version(ptr %tokens) {
+entry:
+  %count = call i64 @weave_tokens_count(ptr %tokens)
+  %has_prefix = icmp uge i64 %count, 6
+  br i1 %has_prefix, label %read_prefix, label %unsupported
+
+read_prefix:
+  %kind0 = call i32 @weave_token_kind(ptr %tokens, i64 0)
+  %kind1 = call i32 @weave_token_kind(ptr %tokens, i64 1)
+  %kind2 = call i32 @weave_token_kind(ptr %tokens, i64 2)
+  %kind3 = call i32 @weave_token_kind(ptr %tokens, i64 3)
+  %kind4 = call i32 @weave_token_kind(ptr %tokens, i64 4)
+  %kind5 = call i32 @weave_token_kind(ptr %tokens, i64 5)
+  %version = call i64 @weave_token_value(ptr %tokens, i64 4)
+  %ok0 = icmp eq i32 %kind0, 1
+  %ok1 = icmp eq i32 %kind1, 25
+  %ok2 = icmp eq i32 %kind2, 1
+  %ok3 = icmp eq i32 %kind3, 26
+  %ok4 = icmp eq i32 %kind4, 4
+  %ok5 = icmp eq i32 %kind5, 2
+  %version_ok = icmp eq i64 %version, 1
+  %a = and i1 %ok0, %ok1
+  %b = and i1 %ok2, %ok3
+  %c = and i1 %ok4, %ok5
+  %ab = and i1 %a, %b
+  %abc = and i1 %ab, %c
+  %all_ok = and i1 %abc, %version_ok
+  br i1 %all_ok, label %supported, label %unsupported
+
+supported:
+  ret i32 1
+
+unsupported:
+  ret i32 0
+}
+
+; ----------------------------------------------------------------------------
 ; File-to-file compilation
 ; ----------------------------------------------------------------------------
 
@@ -129,7 +172,7 @@ lex_error:
   br label %cleanup_tokens_source_fail
 
 validate_version:
-  %version_ok_status = call i32 @weave_tokens_core_version_is_supported(ptr %tokens)
+  %version_ok_status = call i32 @weave_validate_core_version(ptr %tokens)
   %version_bad = icmp eq i32 %version_ok_status, 0
   br i1 %version_bad, label %version_error, label %init_ast
 
@@ -269,7 +312,7 @@ lex:
   br i1 %lex_failed, label %cleanup_tokens_source_fail, label %validate_version
 
 validate_version:
-  %version_ok_status = call i32 @weave_tokens_core_version_is_supported(ptr %tokens)
+  %version_ok_status = call i32 @weave_validate_core_version(ptr %tokens)
   %version_bad = icmp eq i32 %version_ok_status, 0
   br i1 %version_bad, label %cleanup_tokens_source_fail, label %init_ast
 
