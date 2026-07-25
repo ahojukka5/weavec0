@@ -38,8 +38,8 @@ set -euo pipefail
 #       output-format changes; review the resulting `git diff` before
 #       committing.
 #
-# This script is intentionally bash, not CMake, to match the convention used
-# by weavec1, weavec2 and weavefront in this repository.
+# This script is intentionally bash, not CMake, to keep the bootstrap build
+# explicit and consistent with the other lower compiler stages.
 # =============================================================================
 
 REGEN_GOLDENS=0
