@@ -1,0 +1,3 @@
+; CLI lexer-failure fixture.
+; '@' is not admitted by the Stage 0 WIR lexer.
+@
