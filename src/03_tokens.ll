@@ -389,32 +389,104 @@ fail:
 
 define i32 @weave_token_kind(ptr %tokens, i64 %index) {
 entry:
+  %count = call i64 @weave_tokens_count(ptr %tokens)
+  %in_range = icmp ult i64 %index, %count
+  br i1 %in_range, label %load_value, label %out_of_range
+
+load_value:
   %array = call ptr @weave_tokens_kinds(ptr %tokens)
   %slot = getelementptr inbounds i32, ptr %array, i64 %index
   %value = load i32, ptr %slot
   ret i32 %value
+
+out_of_range:
+  ; Treat any lookahead beyond the stream as EOF.
+  ret i32 0
 }
 
 define i64 @weave_token_start(ptr %tokens, i64 %index) {
 entry:
+  %count = call i64 @weave_tokens_count(ptr %tokens)
+  %in_range = icmp ult i64 %index, %count
+  br i1 %in_range, label %load_value, label %out_of_range
+
+load_value:
   %array = call ptr @weave_tokens_starts(ptr %tokens)
   %slot = getelementptr inbounds i64, ptr %array, i64 %index
   %value = load i64, ptr %slot
   ret i64 %value
+
+out_of_range:
+  ret i64 0
 }
 
 define i64 @weave_token_length(ptr %tokens, i64 %index) {
 entry:
+  %count = call i64 @weave_tokens_count(ptr %tokens)
+  %in_range = icmp ult i64 %index, %count
+  br i1 %in_range, label %load_value, label %out_of_range
+
+load_value:
   %array = call ptr @weave_tokens_lengths(ptr %tokens)
   %slot = getelementptr inbounds i64, ptr %array, i64 %index
   %value = load i64, ptr %slot
   ret i64 %value
+
+out_of_range:
+  ret i64 0
 }
 
 define i64 @weave_token_value(ptr %tokens, i64 %index) {
 entry:
+  %count = call i64 @weave_tokens_count(ptr %tokens)
+  %in_range = icmp ult i64 %index, %count
+  br i1 %in_range, label %load_value, label %out_of_range
+
+load_value:
   %array = call ptr @weave_tokens_values(ptr %tokens)
   %slot = getelementptr inbounds i64, ptr %array, i64 %index
   %value = load i64, ptr %slot
   ret i64 %value
+
+out_of_range:
+  ret i64 0
+}
+
+; Validate the fixed WIR module prefix after lexing:
+;   ( core-module ( core-version 1 ) ...
+; Returns 1 only for the supported core version.
+define i32 @weave_tokens_core_version_is_supported(ptr %tokens) {
+entry:
+  %count = call i64 @weave_tokens_count(ptr %tokens)
+  %has_prefix = icmp uge i64 %count, 6
+  br i1 %has_prefix, label %read_prefix, label %unsupported
+
+read_prefix:
+  %kind0 = call i32 @weave_token_kind(ptr %tokens, i64 0)
+  %kind1 = call i32 @weave_token_kind(ptr %tokens, i64 1)
+  %kind2 = call i32 @weave_token_kind(ptr %tokens, i64 2)
+  %kind3 = call i32 @weave_token_kind(ptr %tokens, i64 3)
+  %kind4 = call i32 @weave_token_kind(ptr %tokens, i64 4)
+  %kind5 = call i32 @weave_token_kind(ptr %tokens, i64 5)
+  %version = call i64 @weave_token_value(ptr %tokens, i64 4)
+  %ok0 = icmp eq i32 %kind0, 1
+  %ok1 = icmp eq i32 %kind1, 25
+  %ok2 = icmp eq i32 %kind2, 1
+  %ok3 = icmp eq i32 %kind3, 26
+  %ok4 = icmp eq i32 %kind4, 4
+  %ok5 = icmp eq i32 %kind5, 2
+  %version_ok = icmp eq i64 %version, 1
+  %a = and i1 %ok0, %ok1
+  %b = and i1 %ok2, %ok3
+  %c = and i1 %ok4, %ok5
+  %ab = and i1 %a, %b
+  %abc = and i1 %ab, %c
+  %all_ok = and i1 %abc, %version_ok
+  br i1 %all_ok, label %supported, label %unsupported
+
+supported:
+  ret i32 1
+
+unsupported:
+  ret i32 0
 }
