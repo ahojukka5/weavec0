@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: Apache-2.0
+name: export bootstrap sources
+
+on:
+  push:
+    branches: [agent/wir-v2-finalize]
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout weavec0
+        uses: actions/checkout@v4
+        with:
+          path: weavec0
+          fetch-depth: 0
+
+      - name: Checkout weavec1
+        uses: actions/checkout@v4
+        with:
+          repository: ahojukka5/weavec1
+          ref: master
+          path: weavec1
+          fetch-depth: 0
+
+      - name: Archive sources
+        run: |
+          tar --exclude='.git' -czf bootstrap-sources.tar.gz weavec0 weavec1
+
+      - name: Upload sources
+        uses: actions/upload-artifact@v4
+        with:
+          name: bootstrap-sources
+          path: bootstrap-sources.tar.gz
