@@ -83,6 +83,105 @@ def inventory(paths: list[Path]) -> tuple[Counter[str], Counter[str]]:
     return symbols, heads
 
 
+def parse_sexpressions(tokens: list[str]) -> list[list[object]]:
+    roots: list[list[object]] = []
+    stack: list[list[object]] = []
+    for token in tokens:
+        if token == "(":
+            node: list[object] = []
+            if stack:
+                stack[-1].append(node)
+            else:
+                roots.append(node)
+            stack.append(node)
+        elif token == ")":
+            if not stack:
+                raise ValueError("unbalanced closing parenthesis")
+            stack.pop()
+        elif stack:
+            stack[-1].append(token)
+    if stack:
+        raise ValueError("unclosed parenthesis")
+    return roots
+
+
+def walk_forms(node: object):
+    if not isinstance(node, list):
+        return
+    if node:
+        yield node
+    for child in node:
+        yield from walk_forms(child)
+
+
+def wir_link_inventory(paths: list[Path]) -> tuple[Counter[str], set[str], set[str]]:
+    callees: Counter[str] = Counter()
+    definitions: set[str] = set()
+    externs: set[str] = set()
+    call_heads = {"call_i32", "call_i64", "call_bool", "call_ptr", "call_void"}
+    for path in paths:
+        forms = parse_sexpressions(tokenize_wir(path.read_text(encoding="utf-8")))
+        for root in forms:
+            for form in walk_forms(root):
+                if not form or not isinstance(form[0], str):
+                    continue
+                head = form[0]
+                if head == "fn" and len(form) > 1 and isinstance(form[1], str):
+                    definitions.add(form[1])
+                elif head == "extern" and len(form) > 1 and isinstance(form[1], str):
+                    externs.add(form[1])
+                elif head in call_heads and len(form) > 1 and isinstance(form[1], str):
+                    callees[form[1]] += 1
+    return callees, definitions, externs
+
+
+def llvm_call_graph(src_dir: Path) -> tuple[set[str], dict[str, set[str]]]:
+    define_re = re.compile(r"^\s*define\b")
+    name_re = re.compile(r"@([A-Za-z$._][A-Za-z0-9$._-]*)")
+    definitions: set[str] = set()
+    bodies: dict[str, list[str]] = {}
+    for path in sorted(src_dir.glob("*.ll")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        index = 0
+        while index < len(lines):
+            if not define_re.match(lines[index]):
+                index += 1
+                continue
+            signature = [lines[index]]
+            while "{" not in signature[-1]:
+                index += 1
+                signature.append(lines[index])
+            match = name_re.search(" ".join(signature))
+            if not match:
+                raise ValueError(f"cannot parse function definition in {path}")
+            name = match.group(1)
+            definitions.add(name)
+            body: list[str] = []
+            index += 1
+            while index < len(lines) and lines[index].strip() != "}":
+                body.append(lines[index])
+                index += 1
+            bodies[name] = body
+            index += 1
+    graph: dict[str, set[str]] = {name: set() for name in definitions}
+    for name, body in bodies.items():
+        references = set(name_re.findall("\n".join(body)))
+        graph[name] = (references & definitions) - {name}
+    return definitions, graph
+
+
+def reachable_functions(graph: dict[str, set[str]], roots: set[str]) -> set[str]:
+    seen: set[str] = set()
+    stack = sorted(root for root in roots if root in graph)
+    while stack:
+        name = stack.pop()
+        if name in seen:
+            continue
+        seen.add(name)
+        stack.extend(sorted(graph[name] - seen))
+    return seen
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--weavec0", type=Path, required=True)
@@ -120,6 +219,12 @@ def main() -> int:
 
     source_symbols, source_heads = inventory(weavec1_paths)
     test_symbols, test_heads = inventory(test_paths)
+    call_targets, weavec1_definitions, weavec1_externs = wir_link_inventory(weavec1_paths)
+    weavec0_definitions, weavec0_graph = llvm_call_graph(args.weavec0 / "src")
+    stage0_dependencies = sorted(set(call_targets) & weavec0_definitions)
+    roots = {"main", *stage0_dependencies}
+    reachable = reachable_functions(weavec0_graph, roots)
+    unreachable = sorted(weavec0_definitions - reachable)
 
     unused = [keyword for keyword in keywords if source_symbols[keyword] == 0]
     test_only = [keyword for keyword in unused if test_symbols[keyword] > 0]
@@ -135,6 +240,12 @@ def main() -> int:
         print("keywords not present in the weavec0 WIR test corpus:")
         for keyword in untested:
             print(f"  {keyword}")
+    print("weavec1 direct dependencies provided by weavec0:")
+    for name in stage0_dependencies:
+        print(f"  {name:40s} calls={call_targets[name]}")
+    print("weavec0 functions unreachable from main or pinned weavec1:")
+    for name in unreachable:
+        print(f"  {name}")
 
     report = {
         "weavec1_commit": weavec1_commit,
@@ -148,6 +259,12 @@ def main() -> int:
         "weavec1_head_counts": dict(sorted(source_heads.items())),
         "weavec0_test_symbol_counts": dict(sorted(test_symbols.items())),
         "weavec0_test_head_counts": dict(sorted(test_heads.items())),
+        "weavec1_function_definitions": sorted(weavec1_definitions),
+        "weavec1_externs": sorted(weavec1_externs),
+        "weavec1_call_targets": dict(sorted(call_targets.items())),
+        "weavec1_stage0_direct_dependencies": stage0_dependencies,
+        "weavec0_reachability_roots": sorted(roots),
+        "unreachable_weavec0_functions": unreachable,
     }
     if args.json_path:
         args.json_path.parent.mkdir(parents=True, exist_ok=True)
