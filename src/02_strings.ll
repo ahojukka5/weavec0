@@ -2,38 +2,14 @@
 ; =============================================================================
 ; 02_strings.ll
 ;
-; Small string and byte-buffer helpers used by the lexer, parser, and LLVM
-; emitter.
-;
-; Responsibilities:
-;   - manage growable %weave.Buffer instances (init/free, ensure_capacity)
-;   - append bytes, cstrs, integers, and other buffers into a Buffer
-;   - compare byte slices (weave_bytes_equal) used by keyword matching and
-;     extern-name dispatch in the emitter
-;   - back the byte/cstr/int append paths exercised by 07_emit_llvm.ll
-;
-; Boundary:
-;   This is not a standard library. It is only the tiny text-handling layer
-;   needed by the Stage 0 bridge.  All buffers own their data pointer and
-;   keep one trailing null byte where capacity permits, so callers may pass
-;   the data pointer to C helpers for debugging or for `puts`-style writes.
+; Growable byte buffers, integer formatting, and byte-slice comparisons used
+; by the Stage 0 lexer, parser, and LLVM emitter.
 ; =============================================================================
 
-; ----------------------------------------------------------------------------
-; Buffer layout
-; ----------------------------------------------------------------------------
-;
 ; %weave.Buffer = type { ptr, i64, i64 }
-;
-; field 0 : data pointer
-; field 1 : length
-; field 2 : capacity
-;
-; A buffer owns its data pointer. The data is always kept null-terminated when
-; possible, so it can be passed to C helpers for debugging or writing.
 
 ; ----------------------------------------------------------------------------
-; Buffer field access helpers
+; Buffer field helpers
 ; ----------------------------------------------------------------------------
 
 define ptr @weave_buffer_data_ptr(ptr %buffer) {
@@ -57,38 +33,26 @@ entry:
 define ptr @weave_buffer_data(ptr %buffer) {
 entry:
   %field = call ptr @weave_buffer_data_ptr(ptr %buffer)
-  %data = load ptr, ptr %field
-  ret ptr %data
+  %value = load ptr, ptr %field
+  ret ptr %value
 }
 
 define i64 @weave_buffer_length(ptr %buffer) {
 entry:
   %field = call ptr @weave_buffer_length_ptr(ptr %buffer)
-  %length = load i64, ptr %field
-  ret i64 %length
+  %value = load i64, ptr %field
+  ret i64 %value
 }
 
 define i64 @weave_buffer_capacity(ptr %buffer) {
 entry:
   %field = call ptr @weave_buffer_capacity_ptr(ptr %buffer)
-  %capacity = load i64, ptr %field
-  ret i64 %capacity
+  %value = load i64, ptr %field
+  ret i64 %value
 }
 
 ; ----------------------------------------------------------------------------
-; weave_buffer_init
-;
-; Allocate the initial backing array for a freshly-zeroed %weave.Buffer and
-; place a leading null byte so the data pointer is immediately safe to read
-; as a C string.
-;
-; Parameters:
-;   buffer - %weave.Buffer* (caller-owned storage, contents overwritten).
-;
-; Returns:
-;   0 on success.
-;   1 on malloc failure; the buffer is left in a null/zero state and a later
-;     append will retry through weave_buffer_reserve.
+; Buffer ownership and growth
 ; ----------------------------------------------------------------------------
 
 define i32 @weave_buffer_init(ptr %buffer) {
@@ -96,102 +60,80 @@ entry:
   %data_field = call ptr @weave_buffer_data_ptr(ptr %buffer)
   %length_field = call ptr @weave_buffer_length_ptr(ptr %buffer)
   %capacity_field = call ptr @weave_buffer_capacity_ptr(ptr %buffer)
-
-  %initial_capacity = add i64 256, 0
-  %data = call ptr @malloc(i64 %initial_capacity)
-  %is_null = icmp eq ptr %data, null
-  br i1 %is_null, label %fail, label %ok
-
-ok:
-  store ptr %data, ptr %data_field
+  store ptr null, ptr %data_field
   store i64 0, ptr %length_field
-  store i64 %initial_capacity, ptr %capacity_field
+  store i64 0, ptr %capacity_field
+
+  %data = call ptr @malloc(i64 256)
+  %failed = icmp eq ptr %data, null
+  br i1 %failed, label %fail, label %store
+
+store:
+  store ptr %data, ptr %data_field
+  store i64 256, ptr %capacity_field
   store i8 0, ptr %data
   ret i32 0
 
 fail:
-  store ptr null, ptr %data_field
-  store i64 0, ptr %length_field
-  store i64 0, ptr %capacity_field
   ret i32 1
 }
-
-; ----------------------------------------------------------------------------
-; weave_buffer_free
-;
-; Release owned memory and reset the buffer to an empty state.
-; ----------------------------------------------------------------------------
 
 define void @weave_buffer_free(ptr %buffer) {
 entry:
   %data_field = call ptr @weave_buffer_data_ptr(ptr %buffer)
   %length_field = call ptr @weave_buffer_length_ptr(ptr %buffer)
   %capacity_field = call ptr @weave_buffer_capacity_ptr(ptr %buffer)
-
   %data = load ptr, ptr %data_field
   %has_data = icmp ne ptr %data, null
-  br i1 %has_data, label %free_data, label %done
+  br i1 %has_data, label %release, label %reset
 
-free_data:
+release:
   call void @free(ptr %data)
-  br label %done
+  br label %reset
 
-done:
+reset:
   store ptr null, ptr %data_field
   store i64 0, ptr %length_field
   store i64 0, ptr %capacity_field
   ret void
 }
 
-; ----------------------------------------------------------------------------
-; weave_buffer_reserve
-;
-; Ensure that the buffer can hold at least `needed` bytes, including the final
-; null terminator.
-;
-; Returns:
-;   0 on success
-;   1 on allocation failure
-; ----------------------------------------------------------------------------
-
 define i32 @weave_buffer_reserve(ptr %buffer, i64 %needed) {
 entry:
   %capacity = call i64 @weave_buffer_capacity(ptr %buffer)
   %enough = icmp ule i64 %needed, %capacity
-  br i1 %enough, label %success, label %grow_start
+  br i1 %enough, label %success, label %choose_start
 
-grow_start:
-  %old_data = call ptr @weave_buffer_data(ptr %buffer)
-  %old_capacity = call i64 @weave_buffer_capacity(ptr %buffer)
-  %is_zero = icmp eq i64 %old_capacity, 0
-  br i1 %is_zero, label %from_empty, label %double_loop
+choose_start:
+  %is_empty = icmp eq i64 %capacity, 0
+  %start = select i1 %is_empty, i64 256, i64 %capacity
+  br label %grow
 
-from_empty:
-  br label %grow_loop
+grow:
+  %current = phi i64 [%start, %choose_start], [%next, %grow_more]
+  %large_enough = icmp uge i64 %current, %needed
+  br i1 %large_enough, label %allocate, label %check_double
 
-double_loop:
-  br label %grow_loop
-
-grow_loop:
-  %capacity_phi = phi i64 [256, %from_empty], [%old_capacity, %double_loop], [%next_capacity, %grow_more]
-  %still_small = icmp ult i64 %capacity_phi, %needed
-  br i1 %still_small, label %grow_more, label %allocate
+check_double:
+  %would_overflow = icmp ugt i64 %current, 9223372036854775807
+  br i1 %would_overflow, label %fail, label %grow_more
 
 grow_more:
-  %next_capacity = mul i64 %capacity_phi, 2
-  br label %grow_loop
+  %next = mul i64 %current, 2
+  br label %grow
 
 allocate:
-  %new_data = call ptr @realloc(ptr %old_data, i64 %capacity_phi)
+  %old_data = call ptr @weave_buffer_data(ptr %buffer)
+  %new_data = call ptr @realloc(ptr %old_data, i64 %current)
   %failed = icmp eq ptr %new_data, null
-  br i1 %failed, label %fail, label %store_new
+  br i1 %failed, label %fail, label %store
 
-store_new:
+store:
   %data_field = call ptr @weave_buffer_data_ptr(ptr %buffer)
   %capacity_field = call ptr @weave_buffer_capacity_ptr(ptr %buffer)
   store ptr %new_data, ptr %data_field
-  store i64 %capacity_phi, ptr %capacity_field
-  br label %success
+  store i64 %current, ptr %capacity_field
+  ret i32 0
 
 success:
   ret i32 0
@@ -201,30 +143,34 @@ fail:
 }
 
 ; ----------------------------------------------------------------------------
-; weave_buffer_append_byte
-;
-; Append one byte and preserve null termination.
+; Buffer append operations
 ; ----------------------------------------------------------------------------
 
 define i32 @weave_buffer_append_byte(ptr %buffer, i32 %byte_value) {
 entry:
   %length = call i64 @weave_buffer_length(ptr %buffer)
   %needed_without_null = add i64 %length, 1
+  %overflow1 = icmp ult i64 %needed_without_null, %length
+  br i1 %overflow1, label %fail, label %compute_needed
+
+compute_needed:
   %needed = add i64 %needed_without_null, 1
-  %reserve_status = call i32 @weave_buffer_reserve(ptr %buffer, i64 %needed)
-  %reserve_failed = icmp ne i32 %reserve_status, 0
-  br i1 %reserve_failed, label %fail, label %append
+  %overflow2 = icmp ult i64 %needed, %needed_without_null
+  br i1 %overflow2, label %fail, label %reserve
+
+reserve:
+  %status = call i32 @weave_buffer_reserve(ptr %buffer, i64 %needed)
+  %failed = icmp ne i32 %status, 0
+  br i1 %failed, label %fail, label %append
 
 append:
   %data = call ptr @weave_buffer_data(ptr %buffer)
-  %byte_ptr = getelementptr inbounds i8, ptr %data, i64 %length
-  %truncated = trunc i32 %byte_value to i8
-  store i8 %truncated, ptr %byte_ptr
-
+  %slot = getelementptr inbounds i8, ptr %data, i64 %length
+  %byte = trunc i32 %byte_value to i8
+  store i8 %byte, ptr %slot
   %new_length = add i64 %length, 1
-  %null_ptr = getelementptr inbounds i8, ptr %data, i64 %new_length
-  store i8 0, ptr %null_ptr
-
+  %terminator = getelementptr inbounds i8, ptr %data, i64 %new_length
+  store i8 0, ptr %terminator
   %length_field = call ptr @weave_buffer_length_ptr(ptr %buffer)
   store i64 %new_length, ptr %length_field
   ret i32 0
@@ -233,42 +179,32 @@ fail:
   ret i32 1
 }
 
-; ----------------------------------------------------------------------------
-; weave_buffer_append_bytes
-;
-; Append `length` raw bytes from `src` to `buffer`, growing capacity as
-; needed, and re-establish the trailing null byte.
-;
-; Parameters:
-;   buffer - %weave.Buffer* receiving the bytes.
-;   src    - source byte pointer; may be null only when length is 0.
-;   length - number of bytes to copy. Zero is allowed (becomes a no-op that
-;            still re-asserts the null terminator).
-;
-; Returns:
-;   0 on success.
-;   1 on allocation failure or when src is null with a non-zero length.
-; ----------------------------------------------------------------------------
-
 define i32 @weave_buffer_append_bytes(ptr %buffer, ptr %src, i64 %length) {
 entry:
-  %src_is_null = icmp eq ptr %src, null
-  %length_is_zero = icmp eq i64 %length, 0
-  %length_is_nonzero = xor i1 %length_is_zero, true
-  %invalid = and i1 %src_is_null, %length_is_nonzero
-  br i1 %invalid, label %fail, label %reserve
+  %src_null = icmp eq ptr %src, null
+  %nonempty = icmp ne i64 %length, 0
+  %invalid = and i1 %src_null, %nonempty
+  br i1 %invalid, label %fail, label %compute_length
 
-reserve:
+compute_length:
   %old_length = call i64 @weave_buffer_length(ptr %buffer)
   %new_length = add i64 %old_length, %length
+  %overflow1 = icmp ult i64 %new_length, %old_length
+  br i1 %overflow1, label %fail, label %compute_needed
+
+compute_needed:
   %needed = add i64 %new_length, 1
-  %reserve_status = call i32 @weave_buffer_reserve(ptr %buffer, i64 %needed)
-  %reserve_failed = icmp ne i32 %reserve_status, 0
-  br i1 %reserve_failed, label %fail, label %copy_or_finish
+  %overflow2 = icmp ult i64 %needed, %new_length
+  br i1 %overflow2, label %fail, label %reserve
+
+reserve:
+  %status = call i32 @weave_buffer_reserve(ptr %buffer, i64 %needed)
+  %failed = icmp ne i32 %status, 0
+  br i1 %failed, label %fail, label %copy_or_finish
 
 copy_or_finish:
-  %zero = icmp eq i64 %length, 0
-  br i1 %zero, label %terminate, label %copy
+  %empty = icmp eq i64 %length, 0
+  br i1 %empty, label %terminate, label %copy
 
 copy:
   %data = call ptr @weave_buffer_data(ptr %buffer)
@@ -278,9 +214,8 @@ copy:
 
 terminate:
   %data2 = call ptr @weave_buffer_data(ptr %buffer)
-  %null_ptr = getelementptr inbounds i8, ptr %data2, i64 %new_length
-  store i8 0, ptr %null_ptr
-
+  %terminator = getelementptr inbounds i8, ptr %data2, i64 %new_length
+  store i8 0, ptr %terminator
   %length_field = call ptr @weave_buffer_length_ptr(ptr %buffer)
   store i64 %new_length, ptr %length_field
   ret i32 0
@@ -289,16 +224,10 @@ fail:
   ret i32 1
 }
 
-; ----------------------------------------------------------------------------
-; weave_buffer_append_cstr
-;
-; Append a null-terminated byte string.
-; ----------------------------------------------------------------------------
-
 define i32 @weave_buffer_append_cstr(ptr %buffer, ptr %text) {
 entry:
-  %is_null = icmp eq ptr %text, null
-  br i1 %is_null, label %fail, label %append
+  %null = icmp eq ptr %text, null
+  br i1 %null, label %fail, label %append
 
 append:
   %length = call i64 @strlen(ptr %text)
@@ -310,48 +239,33 @@ fail:
 }
 
 ; ----------------------------------------------------------------------------
-; weave_buffer_append_i32
+; Decimal integer formatting
 ;
-; Append a signed i32 as decimal text.
+; Magnitudes are deliberately formatted with unsigned division. Two's-complement
+; subtraction therefore represents INT32_MIN/INT64_MIN correctly instead of
+; overflowing while attempting to create a signed positive value.
 ; ----------------------------------------------------------------------------
 
-define i32 @weave_buffer_append_i32(ptr %buffer, i32 %value) {
+define i32 @weave_buffer_append_u32(ptr %buffer, i32 %value) {
 entry:
-  %is_negative = icmp slt i32 %value, 0
-  br i1 %is_negative, label %negative, label %nonnegative
+  %single = icmp ult i32 %value, 10
+  br i1 %single, label %emit_single, label %emit_prefix
 
-negative:
-  %dash_status = call i32 @weave_buffer_append_byte(ptr %buffer, i32 45)
-  %dash_failed = icmp ne i32 %dash_status, 0
-  br i1 %dash_failed, label %fail, label %negate
-
-negate:
-  %positive = sub i32 0, %value
-  br label %digits_start
-
-nonnegative:
-  br label %digits_start
-
-digits_start:
-  %number = phi i32 [%positive, %negate], [%value, %nonnegative]
-  %less_than_ten = icmp slt i32 %number, 10
-  br i1 %less_than_ten, label %single_digit, label %many_digits
-
-many_digits:
-  %prefix = sdiv i32 %number, 10
-  %prefix_status = call i32 @weave_buffer_append_i32(ptr %buffer, i32 %prefix)
+emit_prefix:
+  %prefix = udiv i32 %value, 10
+  %prefix_status = call i32 @weave_buffer_append_u32(ptr %buffer, i32 %prefix)
   %prefix_failed = icmp ne i32 %prefix_status, 0
-  br i1 %prefix_failed, label %fail, label %last_digit
+  br i1 %prefix_failed, label %fail, label %emit_remainder
 
-last_digit:
-  %remainder = srem i32 %number, 10
+emit_remainder:
+  %remainder = urem i32 %value, 10
   br label %emit_digit
 
-single_digit:
+emit_single:
   br label %emit_digit
 
 emit_digit:
-  %digit = phi i32 [%number, %single_digit], [%remainder, %last_digit]
+  %digit = phi i32 [%value, %emit_single], [%remainder, %emit_remainder]
   %ascii = add i32 %digit, 48
   %status = call i32 @weave_buffer_append_byte(ptr %buffer, i32 %ascii)
   ret i32 %status
@@ -360,62 +274,49 @@ fail:
   ret i32 1
 }
 
-; ----------------------------------------------------------------------------
-; weave_buffer_append_i64
-;
-; Append a signed i64 as decimal text. Mirrors weave_buffer_append_i32; the
-; widened form is used by the emitter to materialise i64 literals (e.g.
-; `add i64 0, <lit>`) without silent truncation.
-;
-; Parameters:
-;   buffer - %weave.Buffer* receiving the digits.
-;   value  - signed i64 to format.
-;
-; Returns:
-;   0 on success.
-;   1 on allocation failure.
-; ----------------------------------------------------------------------------
-
-define i32 @weave_buffer_append_i64(ptr %buffer, i64 %value) {
+define i32 @weave_buffer_append_i32(ptr %buffer, i32 %value) {
 entry:
-  %is_negative = icmp slt i64 %value, 0
-  br i1 %is_negative, label %negative, label %nonnegative
+  %negative = icmp slt i32 %value, 0
+  br i1 %negative, label %emit_sign, label %emit_nonnegative
 
-negative:
+emit_sign:
   %dash_status = call i32 @weave_buffer_append_byte(ptr %buffer, i32 45)
   %dash_failed = icmp ne i32 %dash_status, 0
-  br i1 %dash_failed, label %fail, label %negate
+  br i1 %dash_failed, label %fail, label %emit_magnitude
 
-negate:
-  ; -INT64_MIN does not fit; the bootstrap input language does not exercise
-  ; that single value at this width (parsed values come from atoll which
-  ; would reject it as overflow anyway).
-  %positive = sub i64 0, %value
-  br label %digits_start
+emit_magnitude:
+  %magnitude = sub i32 0, %value
+  %negative_status = call i32 @weave_buffer_append_u32(ptr %buffer, i32 %magnitude)
+  ret i32 %negative_status
 
-nonnegative:
-  br label %digits_start
+emit_nonnegative:
+  %positive_status = call i32 @weave_buffer_append_u32(ptr %buffer, i32 %value)
+  ret i32 %positive_status
 
-digits_start:
-  %number = phi i64 [%positive, %negate], [%value, %nonnegative]
-  %less_than_ten = icmp slt i64 %number, 10
-  br i1 %less_than_ten, label %single_digit, label %many_digits
+fail:
+  ret i32 1
+}
 
-many_digits:
-  %prefix = sdiv i64 %number, 10
-  %prefix_status = call i32 @weave_buffer_append_i64(ptr %buffer, i64 %prefix)
+define i32 @weave_buffer_append_u64(ptr %buffer, i64 %value) {
+entry:
+  %single = icmp ult i64 %value, 10
+  br i1 %single, label %emit_single, label %emit_prefix
+
+emit_prefix:
+  %prefix = udiv i64 %value, 10
+  %prefix_status = call i32 @weave_buffer_append_u64(ptr %buffer, i64 %prefix)
   %prefix_failed = icmp ne i32 %prefix_status, 0
-  br i1 %prefix_failed, label %fail, label %last_digit
+  br i1 %prefix_failed, label %fail, label %emit_remainder
 
-last_digit:
-  %remainder = srem i64 %number, 10
+emit_remainder:
+  %remainder = urem i64 %value, 10
   br label %emit_digit
 
-single_digit:
+emit_single:
   br label %emit_digit
 
 emit_digit:
-  %digit = phi i64 [%number, %single_digit], [%remainder, %last_digit]
+  %digit = phi i64 [%value, %emit_single], [%remainder, %emit_remainder]
   %digit_i32 = trunc i64 %digit to i32
   %ascii = add i32 %digit_i32, 48
   %status = call i32 @weave_buffer_append_byte(ptr %buffer, i32 %ascii)
@@ -425,26 +326,31 @@ fail:
   ret i32 1
 }
 
+define i32 @weave_buffer_append_i64(ptr %buffer, i64 %value) {
+entry:
+  %negative = icmp slt i64 %value, 0
+  br i1 %negative, label %emit_sign, label %emit_nonnegative
+
+emit_sign:
+  %dash_status = call i32 @weave_buffer_append_byte(ptr %buffer, i32 45)
+  %dash_failed = icmp ne i32 %dash_status, 0
+  br i1 %dash_failed, label %fail, label %emit_magnitude
+
+emit_magnitude:
+  %magnitude = sub i64 0, %value
+  %negative_status = call i32 @weave_buffer_append_u64(ptr %buffer, i64 %magnitude)
+  ret i32 %negative_status
+
+emit_nonnegative:
+  %positive_status = call i32 @weave_buffer_append_u64(ptr %buffer, i64 %value)
+  ret i32 %positive_status
+
+fail:
+  ret i32 1
+}
+
 ; ----------------------------------------------------------------------------
-; weave_bytes_equal
-;
-; Compare two byte slices for exact equality. Used pervasively by the lexer
-; for keyword recognition and by the emitter for extern-name dispatch.
-;
-; Parameters:
-;   a     - first byte pointer (may be null only when a_len is 0).
-;   a_len - byte length of slice `a`.
-;   b     - second byte pointer (may be null only when b_len is 0).
-;   b_len - byte length of slice `b`.
-;
-; Returns:
-;   1 if both slices have the same length and the same bytes (two null
-;     pointers also compare equal when both lengths are 0).
-;   0 otherwise.
-;
-; Notes:
-;   Uses strncmp under the hood and short-circuits on length mismatch, so a
-;   length difference is detected without ever dereferencing the data.
+; Byte-slice helpers
 ; ----------------------------------------------------------------------------
 
 define i32 @weave_bytes_equal(ptr %a, i64 %a_len, ptr %b, i64 %b_len) {
@@ -464,8 +370,8 @@ null_case:
 
 compare:
   %cmp = call i32 @strncmp(ptr %a, ptr %b, i64 %a_len)
-  %is_equal = icmp eq i32 %cmp, 0
-  br i1 %is_equal, label %equal, label %not_equal
+  %matches = icmp eq i32 %cmp, 0
+  br i1 %matches, label %equal, label %not_equal
 
 equal:
   ret i32 1
@@ -474,21 +380,21 @@ not_equal:
   ret i32 0
 }
 
-; ----------------------------------------------------------------------------
-; weave_slice_starts_with_cstr
-;
-; Return i32 1 if the source slice starts with the null-terminated pattern.
-; ----------------------------------------------------------------------------
-
 define i32 @weave_slice_starts_with_cstr(ptr %src, i64 %src_len, ptr %pattern) {
 entry:
   %pattern_null = icmp eq ptr %pattern, null
-  br i1 %pattern_null, label %no, label %have_pattern
+  br i1 %pattern_null, label %no, label %measure
 
-have_pattern:
+measure:
   %pattern_len = call i64 @strlen(ptr %pattern)
+  %empty_pattern = icmp eq i64 %pattern_len, 0
+  br i1 %empty_pattern, label %yes, label %check_source
+
+check_source:
+  %src_null = icmp eq ptr %src, null
   %too_short = icmp ult i64 %src_len, %pattern_len
-  br i1 %too_short, label %no, label %compare
+  %invalid = or i1 %src_null, %too_short
+  br i1 %invalid, label %no, label %compare
 
 compare:
   %cmp = call i32 @strncmp(ptr %src, ptr %pattern, i64 %pattern_len)
