@@ -22,6 +22,11 @@ WEAVEC0_COVERAGE_OUT="$RAW_TSV" \
   bash "$ROOT/scripts/run-cli-tests.sh" \
     "$INSTRUMENTED_BIN" "$BUILD_DIR/cli-tests"
 
+printf '[coverage] extend workload with generated parser-negative matrix\n' >&2
+WEAVEC0_COVERAGE_OUT="$RAW_TSV" \
+  bash "$ROOT/scripts/run-parser-negative-matrix.sh" \
+    "$INSTRUMENTED_BIN" "$BUILD_DIR/parser-negative-matrix"
+
 printf '[coverage] regenerate aggregate report\n' >&2
 python3 "$ROOT/scripts/report_llvm_coverage.py" \
   --map "$MAP_TSV" \

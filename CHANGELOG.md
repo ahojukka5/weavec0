@@ -8,6 +8,14 @@ stages consume published SDKs.
 
 ## [Unreleased]
 
+### Added
+
+- A generated 99-case parser-negative matrix covering too-few and too-many
+  operands across fixed-arity operators, malformed unary and constant forms,
+  missing call targets, and malformed statements.
+- The same generated matrix is included in both the normal test ladder and the
+  instrumented LLVM coverage workload.
+
 ## [0.3.0] — 2026-07-25
 
 ### Added
