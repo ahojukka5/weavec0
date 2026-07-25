@@ -47,8 +47,8 @@ jobs:
           llvm-link --version
           musl-gcc --version
 
-      - name: Build and run the full test ladder
-        run: ./build.sh
+      - name: Run complete WIR and CLI ladders
+        run: bash scripts/run-tests.sh
 
       - name: Select archive version
         id: version
