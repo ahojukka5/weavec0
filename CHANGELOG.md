@@ -13,6 +13,11 @@ stages consume published SDKs.
 - Regression coverage for exact `INT64_MIN` emission.
 - A token-growth case that crosses the initial parallel-array capacity.
 - A negative case for unsupported WIR core versions.
+- Machine-readable function, basic-block, and branch-outcome coverage for the
+  linked handwritten LLVM implementation.
+- A pinned `weavec1` production corpus and bootstrap-surface inventory that
+  reports unused WIR keywords and statically unreachable Stage 0 functions.
+- CI coverage non-regression floors and uploaded JSON/TSV audit reports.
 
 ### Fixed
 
@@ -36,6 +41,8 @@ stages consume published SDKs.
   `weavec-bootstrap` and `weavec2` was renamed to `weavec`.
 - Clarified that normal users consume `weavec`, while `weavec0`, `weavec1`, and
   `weavec-bootstrap` form the reproducible bootstrap chain.
+- Documented why LLVM basic-block and branch-outcome coverage are used instead
+  of textual line coverage and how coverage evidence guides minimisation.
 
 ## [0.2.1] — 2026-07-24
 

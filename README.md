@@ -25,6 +25,10 @@ small, auditable, deterministic, and capable of building `weavec1`.
 ## Current status
 
 - The source test ladder contains 104 cases: 93 positive cases and 11 expected failures.
+- The combined test and pinned-`weavec1` corpus currently covers 95.98% of
+  functions, 87.76% of basic blocks, and 70.13% of conditional branch outcomes.
+- CI enforces conservative coverage non-regression floors and publishes a
+  machine-readable bootstrap-surface report.
 - Linux x86-64 bootstrap SDKs are published for glibc and musl.
 - `weavec1` builds from the published Stage 0 SDK without rebuilding this
   repository on Linux.
@@ -104,13 +108,33 @@ The build:
 2. links compiler bitcode with `llvm-link`;
 3. links the source compiler with `runtime.c`;
 4. compiles every positive WIR fixture;
-5. compares generated LLVM IR with checked-in goldens;
-6. assembles, links, and runs generated programs;
-7. verifies expected exit codes;
-8. verifies negative cases fail without producing LLVM IR.
+5. assembles, links, and executes every generated positive program;
+6. verifies expected exit codes and all expected-failure cases;
+7. only after correctness passes, compares every generated LLVM file with its
+   checked-in golden.
 
 Use `--regen-goldens` only after an intentional emitter change and review the
-resulting diff.
+resulting diff. Correctness is always checked before any fixture is regenerated.
+
+## Coverage and minimisation audit
+
+The audit measures function, basic-block, and branch-outcome coverage on a
+temporary instrumented copy of the linked compiler. It runs both the Stage 0
+test corpus and the exact `weavec1` source modules pinned in
+[`WEAVEC1_BOOTSTRAP_COMMIT`](WEAVEC1_BOOTSTRAP_COMMIT).
+
+```sh
+bash scripts/run-coverage.sh
+bash scripts/run-coverage.sh --weavec1-dir ../weavec1
+```
+
+It also inventories the WIR forms used by the pinned Stage 1 sources and computes
+which Stage 0 functions are unreachable from either the command-line compiler or
+any direct Stage 1 dependency. This evidence is used to add focused tests and to
+identify code that can be removed safely.
+
+See [`docs/COVERAGE.md`](docs/COVERAGE.md) for the metrics, reports, current
+baseline, and compatibility rules for removal candidates.
 
 ## Repository layout
 
@@ -120,10 +144,11 @@ weavec0/
 ├── runtime.c
 ├── runtime.h
 ├── VERSION
+├── WEAVEC1_BOOTSTRAP_COMMIT
 ├── src/                 hand-written LLVM compiler modules
 ├── test/                WIR fixtures and LLVM goldens
-├── scripts/             release packaging
-└── docs/                SDK and source-style documentation
+├── scripts/             release, audit, and coverage tools
+└── docs/                SDK, coverage, and source-style documentation
 ```
 
 The numeric source prefixes expose the dependency order explicitly:
