@@ -6,6 +6,7 @@ on:
     branches: [master]
     paths:
       - scripts/apply-module-symbol-validation.py
+      - scripts/run-module-symbol-tests.sh
       - .github/workflows/apply-module-symbol-validation.yml
 
 permissions:
