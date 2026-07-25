@@ -1,0 +1,19 @@
+; 105_const_i32_max.wir
+; purpose: covers the highest exactly representable i32 literal.
+; verifies bounded integer parsing accepts INT32_MAX without truncation.
+; expected runtime behavior: process exits with code 255 (the low exit byte).
+
+(core-module
+  (core-version 1)
+  (decls
+    (fn main
+      (params)
+      (returns i32)
+      (do
+        (return
+          (const_i32 2147483647)
+        ) ;; return
+      ) ;; do
+    ) ;; fn
+  ) ;; decls
+) ;; core-module

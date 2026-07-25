@@ -80,10 +80,6 @@ declare ptr @strchr(ptr %s, i32 %ch)
 ; Used only for bootstrap input parsing where the syntax is intentionally tiny.
 declare i32 @atoi(ptr %s)
 
-; Wider conversion. Used by the lexer for const_i64 literal values so the i64
-; surface (constants up to INT64_MAX) survives without silent truncation.
-declare i64 @atoll(ptr %s)
-
 ; ----------------------------------------------------------------------------
 ; File IO
 ; ----------------------------------------------------------------------------

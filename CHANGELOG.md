@@ -8,6 +8,29 @@ stages consume published SDKs.
 
 ## [Unreleased]
 
+## [0.3.2] — 2026-07-25
+
+### Added
+
+- An exact `INT32_MAX` regression and a generated six-case integer-range
+  negative matrix covering both adjacent boundary failures and arbitrarily
+  large positive and negative decimal sequences.
+- Integer-range failures are included in both the normal test ladder and the
+  instrumented LLVM coverage workload.
+
+### Changed
+
+- Decimal integer tokens are parsed by a bounded manual accumulator over the
+  explicit source slice. Stage 0 no longer depends on libc `atoll`, a trailing
+  NUL byte, implementation-defined saturation, or later narrowing truncation.
+
+### Fixed
+
+- `const_i32` now rejects values outside `[-2147483648, 2147483647]`.
+- All integer tokens now reject values outside
+  `[-9223372036854775808, 9223372036854775807]` while preserving both exact
+  signed minima.
+
 ## [0.3.1] — 2026-07-25
 
 ### Added

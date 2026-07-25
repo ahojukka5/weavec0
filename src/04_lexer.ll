@@ -857,7 +857,13 @@ return_ident:
 ; Integer scanning
 ; ----------------------------------------------------------------------------
 ;
-; Scan a non-negative decimal integer starting at `start`.
+; Scan one signed decimal integer starting at `start`.
+;
+; The magnitude is accumulated with explicit bounds. Positive values admit at
+; most INT64_MAX; negative values admit the one larger INT64_MIN magnitude.
+; When the preceding token is const_i32, the final signed value must also fit
+; exactly in i32. This keeps every integer token authoritative and avoids libc
+; conversion, saturation, truncation, and dependence on a trailing NUL byte.
 ;
 ; On success, appends TOKEN_INT and returns the index just after the literal.
 ; On failure, returns -1.
@@ -870,33 +876,69 @@ entry:
   %is_minus = icmp eq i32 %first_ch, 45
   %signed_start = add i64 %start, 1
   %scan_start = select i1 %is_minus, i64 %signed_start, i64 %start
+  %token_count = call i64 @weave_tokens_count(ptr %tokens)
+  %has_previous = icmp ugt i64 %token_count, 0
+  br i1 %has_previous, label %read_previous, label %init
+
+read_previous:
+  %previous_index = sub i64 %token_count, 1
+  %previous_kind = call i32 @weave_token_kind(ptr %tokens, i64 %previous_index)
+  %previous_is_const_i32 = icmp eq i32 %previous_kind, 31
+  br label %init
+
+init:
+  %requires_i32 = phi i1 [false, %entry], [%previous_is_const_i32, %read_previous]
+  %last_digit_limit = select i1 %is_minus, i64 8, i64 7
   br label %loop
 
 loop:
-  %index = phi i64 [%scan_start, %entry], [%next, %advance]
+  %index = phi i64 [%scan_start, %init], [%next, %accumulate]
+  %magnitude = phi i64 [0, %init], [%next_magnitude, %accumulate]
   %at_end = icmp uge i64 %index, %length
   br i1 %at_end, label %finish, label %read
 
 read:
   %ch = call i32 @weave_source_byte_at(ptr %source, i64 %index)
-  %is_digit = call i32 @weave_is_digit(i32 %ch)
-  %yes = icmp ne i32 %is_digit, 0
-  br i1 %yes, label %advance, label %finish
+  %is_digit_status = call i32 @weave_is_digit(i32 %ch)
+  %is_digit = icmp ne i32 %is_digit_status, 0
+  br i1 %is_digit, label %check_overflow, label %finish
 
-advance:
+check_overflow:
+  %digit_i32 = sub i32 %ch, 48
+  %digit = zext i32 %digit_i32 to i64
+  %prefix_too_large = icmp ugt i64 %magnitude, 922337203685477580
+  %prefix_at_limit = icmp eq i64 %magnitude, 922337203685477580
+  %last_digit_too_large = icmp ugt i64 %digit, %last_digit_limit
+  %overflow_at_limit = and i1 %prefix_at_limit, %last_digit_too_large
+  %overflow = or i1 %prefix_too_large, %overflow_at_limit
+  br i1 %overflow, label %fail, label %accumulate
+
+accumulate:
+  %scaled = mul i64 %magnitude, 10
+  %next_magnitude = add i64 %scaled, %digit
   %next = add i64 %index, 1
   br label %loop
 
 finish:
-  %token_length = sub i64 %index, %start
-  %empty = icmp eq i64 %token_length, 0
-  br i1 %empty, label %fail, label %parse_value
+  %digit_count = sub i64 %index, %scan_start
+  %empty = icmp eq i64 %digit_count, 0
+  br i1 %empty, label %fail, label %apply_sign
 
-parse_value:
-  %data = call ptr @weave_source_data(ptr %source)
-  %text = getelementptr inbounds i8, ptr %data, i64 %start
-  ; atoll, not atoi: const_i64 values (up to INT64_MAX) must survive.
-  %value = call i64 @atoll(ptr %text)
+apply_sign:
+  ; Plain LLVM integer arithmetic wraps modulo 2^64 without nsw/nuw flags, so
+  ; subtracting the admitted 2^63 magnitude yields the exact INT64_MIN bits.
+  %negative_value = sub i64 0, %magnitude
+  %value = select i1 %is_minus, i64 %negative_value, i64 %magnitude
+  br i1 %requires_i32, label %check_i32_range, label %push
+
+check_i32_range:
+  %below_i32 = icmp slt i64 %value, -2147483648
+  %above_i32 = icmp sgt i64 %value, 2147483647
+  %outside_i32 = or i1 %below_i32, %above_i32
+  br i1 %outside_i32, label %fail, label %push
+
+push:
+  %token_length = sub i64 %index, %start
   %status = call i32 @weave_tokens_push(ptr %tokens, i32 4, i64 %start, i64 %token_length, i64 %value)
   %failed = icmp ne i32 %status, 0
   br i1 %failed, label %fail, label %success
