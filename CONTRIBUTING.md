@@ -4,8 +4,10 @@ Thanks for your interest in `weavec0`. The scope is intentionally narrow:
 Stage 0 must remain small enough to audit and complete enough to bootstrap
 `weavec1` through a published, versioned SDK.
 
-Read the design rules and known limitations in the
-[README](README.md) before changing the compiler or runtime ABI.
+Read the [architecture](docs/architecture.md),
+[WIR bootstrap profile](docs/wir.md), and
+[minimization rule](docs/minimization.md) before changing the compiler or
+runtime ABI.
 
 ## Principles
 
@@ -21,10 +23,12 @@ Read the design rules and known limitations in the
 - **Keep source documentation current.** Follow
   [`docs/source-style.md`](docs/source-style.md) for LLVM module and function
   documentation.
+- **Keep repository documentation navigable.** Files under `docs/` use lowercase
+  kebab-case names and all local Markdown links must resolve.
 
 ## What does not belong here
 
-Optimisation, advanced typing, packages, borrow checking, generics, macros,
+Optimization, advanced typing, packages, borrow checking, generics, macros,
 IDE tooling, incremental compilation, and production compiler architecture
 belong in later stages.
 
@@ -34,16 +38,19 @@ the stable bootstrap chain actually requires.
 ## Development workflow
 
 1. Create a focused branch.
-2. Edit the relevant `src/*.ll` or runtime file.
-3. Add or update the matching test fixture and manifest entry.
-4. Run `./build.sh` and confirm all positive and negative cases pass.
-5. Regenerate and review goldens when emitter output changes.
-6. Update README, changelog, SDK, or ABI documentation when behavior changes.
-7. Open a pull request.
+2. Edit the relevant `src/*.ll`, runtime, test, or documentation file.
+3. Add or update the matching test fixture and manifest entry when behavior
+   changes.
+4. Run `python3 scripts/check_docs.py`.
+5. Run `./build.sh` and confirm all positive and negative cases pass.
+6. Regenerate and review goldens when emitter output changes.
+7. Update README, changelog, SDK, ABI, or architecture documentation when a
+   public contract changes.
+8. Open a pull request.
 
-CI validates the source build on Linux and macOS. The release workflow also
-builds glibc and musl SDKs, rejects dynamically linked compiler executables, and
-runs SDK-only smoke tests.
+CI validates documentation consistency and the source build on Linux and macOS.
+The release workflow also builds glibc and musl SDKs, rejects dynamically linked
+compiler executables, and runs SDK-only smoke tests.
 
 ## SDK-affecting changes
 
@@ -51,7 +58,6 @@ A change affects the SDK when it modifies:
 
 - the WIR accepted by `bin/weavec0`;
 - emitted LLVM behavior;
-- bootstrap object or bitcode contents;
 - runtime symbols or signatures;
 - archive paths or manifest fields.
 
@@ -63,8 +69,9 @@ For such a change:
 4. publish the new SDK;
 5. only then update downstream pins such as `WEAVEC0_VERSION`.
 
-See [`docs/BOOTSTRAP_SDK.md`](docs/BOOTSTRAP_SDK.md) and
-[`RELEASING.md`](RELEASING.md).
+See [`docs/index.md`](docs/index.md),
+[`docs/bootstrap-sdk.md`](docs/bootstrap-sdk.md), and
+[`docs/releasing.md`](docs/releasing.md).
 
 ## Licensing
 
