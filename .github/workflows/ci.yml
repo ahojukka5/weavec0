@@ -2,10 +2,10 @@
 #
 # Continuous integration for weavec0.
 #
-# The normal matrix builds and executes the full correctness/golden ladder on
-# Linux and macOS. A separate Linux audit job measures the linked handwritten
-# LLVM implementation against both the test corpus and the pinned weavec1
-# production corpus.
+# The normal matrix builds and executes the full WIR correctness/golden ladder
+# plus process-level CLI tests on Linux and macOS. A separate Linux audit job
+# measures the linked handwritten LLVM implementation against the test corpus,
+# CLI error paths, and the pinned weavec1 production corpus.
 
 name: ci
 
@@ -15,76 +15,7 @@ on:
   pull_request:
     branches: [master]
 
-permissions:
-  contents: write
-
 jobs:
-  apply-cli-integration:
-    if: github.event_name == 'pull_request' && github.head_ref == 'agent/cover-cli-error-paths'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout feature branch
-        uses: actions/checkout@v4
-        with:
-          ref: agent/cover-cli-error-paths
-          fetch-depth: 0
-
-      - name: Apply focused ladder integration
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          build = Path("build.sh")
-          text = build.read_text(encoding="utf-8")
-          old = '''main() {
-            build_weavec0
-
-            log "correctness phase"
-            run_manifest_correctness
-'''
-          new = '''main() {
-            build_weavec0
-
-            log "CLI error-path phase"
-            bash "$BOOTSTRAP_DIR/scripts/run-cli-tests.sh" \
-              "$WEAVEC0" "$BUILD_DIR/cli-tests"
-
-            log "correctness phase"
-            run_manifest_correctness
-'''
-          if text.count(old) != 1:
-              raise SystemExit("build.sh integration anchor not found exactly once")
-          build.write_text(text.replace(old, new), encoding="utf-8")
-
-          coverage = Path("scripts/run-coverage.sh")
-          text = coverage.read_text(encoding="utf-8")
-          old = ''': > "$RAW_TSV"
-
-          run_compiler_case() {
-'''
-          new = ''': > "$RAW_TSV"
-
-          printf '[coverage] run CLI error-path corpus\\n' >&2
-          WEAVEC0_COVERAGE_OUT="$RAW_TSV" \
-            bash "$ROOT/scripts/run-cli-tests.sh" \
-              "$INSTRUMENTED_BIN" "$BUILD_DIR/cli-tests"
-
-          run_compiler_case() {
-'''
-          if text.count(old) != 1:
-              raise SystemExit("run-coverage.sh integration anchor not found exactly once")
-          coverage.write_text(text.replace(old, new), encoding="utf-8")
-          PY
-
-          rm -f .github/workflows/apply-cli-test-integration.yml
-          git show origin/master:.github/workflows/ci.yml > .github/workflows/ci.yml
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add build.sh scripts/run-coverage.sh .github/workflows
-          git commit -m "test: run CLI errors in all ladders"
-          git push origin HEAD:agent/cover-cli-error-paths
-
   test:
     name: build & test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -120,8 +51,8 @@ jobs:
           llvm-as --version
           llvm-link --version
 
-      - name: Build & run test ladder
-        run: ./build.sh
+      - name: Run complete WIR and CLI ladders
+        run: bash scripts/run-tests.sh
 
   coverage:
     name: LLVM path & bootstrap-surface audit
@@ -152,8 +83,13 @@ jobs:
           git -C build/weavec1-audit checkout --detach FETCH_HEAD
           test "$(git -C build/weavec1-audit rev-parse HEAD)" = "$commit"
 
-      - name: Measure LLVM execution and bootstrap surface
+      - name: Measure WIR and pinned Stage 1 workloads
         run: bash scripts/run-coverage.sh --weavec1-dir build/weavec1-audit
+
+      - name: Add CLI error paths and require full function coverage
+        run: |
+          WEAVEC0_MIN_FUNCTION_COVERAGE=100 \
+            bash scripts/extend-coverage-with-cli.sh
 
       - name: Upload audit reports
         uses: actions/upload-artifact@v4
