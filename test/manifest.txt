@@ -125,5 +125,8 @@ pass 98_function_with_i64_param         42
 pass 99_many_locals_compound            42
 pass 100_grand_finale                   42
 pass 101_extern_runtime_subset          42
+
+# Stage 0 hardening regressions.
 pass 102_const_i64_min                  0
 pass 103_token_growth                   42
+fail 104_unsupported_core_version       parsing failed
