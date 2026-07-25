@@ -1,5 +1,5 @@
 ; 103_token_growth.wir
-; purpose: forces the token and AST arrays to grow beyond their initial capacity.
+; purpose: forces the token array to grow beyond its initial capacity.
 ; verifies growth preserves every token while compiling a semantically tiny module.
 ; expected runtime behavior: process exits with code 42.
 
