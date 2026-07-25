@@ -78,7 +78,7 @@ binary_matrix '(const_i32 1)' \
   add_i32 sub_i32 mul_i32 div_i32 mod_i32 \
   eq_i32 ne_i32 lt_i32 le_i32 gt_i32 ge_i32
 binary_matrix '(const_i64 1)' \
-  add_i64 sub_i64 mul_i64 eq_i64 ne_i64 lt_i64 le_i64 gt_i64 ge_i64
+  add_i64 sub_i64 mul_i64 eq_i64 ne_i64 lt_i64 le_i64
 binary_matrix '(const_bool true)' and_bool or_bool
 binary_matrix '(const_null)' eq_ptr ne_ptr
 
@@ -117,10 +117,6 @@ run_case const_bool-too-few 'error: parsing failed' \
   "$(expr_program '(const_bool)')"
 run_case const_bool-too-many 'error: parsing failed' \
   "$(expr_program '(const_bool true false)')"
-run_case const_string-too-few 'error: parsing failed' \
-  "$(expr_program '(const_string)')"
-run_case const_string-too-many 'error: parsing failed' \
-  "$(expr_program '(const_string "a" "b")')"
 run_case const_string_ptr-too-few 'error: parsing failed' \
   "$(expr_program '(const_string_ptr)')"
 run_case const_string_ptr-too-many 'error: parsing failed' \

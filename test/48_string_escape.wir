@@ -17,17 +17,17 @@
       (params)
       (returns i32)
       (do
-        (print
-          (const_string "hello\nworld")
-        ) ;; print
+        (call_i32 puts
+          (const_string_ptr "hello\nworld")
+        ) ;; call_i32
 
-        (print
-          (const_string "quote: \"weave\"")
-        ) ;; print
+        (call_i32 puts
+          (const_string_ptr "quote: \"weave\"")
+        ) ;; call_i32
 
-        (print
-          (const_string "backslash: \\")
-        ) ;; print
+        (call_i32 puts
+          (const_string_ptr "backslash: \\")
+        ) ;; call_i32
 
         (return
           (const_i32 42)

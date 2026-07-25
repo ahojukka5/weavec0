@@ -13,8 +13,7 @@
 ;     lookup in the emitter)
 ;   - parse the admitted statement set: do, let, set, if, while, return,
 ;     return_void, store_*, call_void (as a statement)
-;   - parse the admitted expression set: const_i32, const_i64, const_string,
-;     const_string_ptr, const_null, const_bool / true / false, local_get,
+;   - parse the admitted expression set: const_i32, const_i64, const_string_ptr, const_null, const_bool / true / false, local_get,
 ;     param_get, add_*, sub_*, mul_*, div_i32, mod_i32, cmp_*, and/or/not,
 ;     ptr_add, load_*, call_*, cast_*
 ;   - push resulting nodes onto the %weave.Ast via 05_ast helpers and return
@@ -261,15 +260,7 @@ check_ne_i64:
 
 check_eq_i64:
   %is_eq_i64 = icmp eq i32 %kind, 85
-  br i1 %is_eq_i64, label %eq_i64, label %check_gt_i64
-
-check_gt_i64:
-  %is_gt_i64 = icmp eq i32 %kind, 91
-  br i1 %is_gt_i64, label %gt_i64, label %check_ge_i64
-
-check_ge_i64:
-  %is_ge_i64 = icmp eq i32 %kind, 92
-  br i1 %is_ge_i64, label %ge_i64, label %check_and_bool
+  br i1 %is_eq_i64, label %eq_i64, label %check_and_bool
 
 check_and_bool:
   %is_and_bool = icmp eq i32 %kind, 52
@@ -349,12 +340,6 @@ ne_i64:
 
 eq_i64:
   ret i32 28
-
-gt_i64:
-  ret i32 31
-
-ge_i64:
-  ret i32 32
 
 and_bool:
   ret i32 16
@@ -677,10 +662,8 @@ check_const_i64:
   br i1 %is_const_i64, label %parse_const_i64, label %check_const_string
 
 check_const_string:
-  %is_plain_const_string = icmp eq i32 %head_kind, 41
   %is_const_string_ptr = icmp eq i32 %head_kind, 83
-  %is_const_string = or i1 %is_plain_const_string, %is_const_string_ptr
-  br i1 %is_const_string, label %parse_const_string, label %check_param_get
+  br i1 %is_const_string_ptr, label %parse_const_string, label %check_param_get
 
 check_param_get:
   %is_param_get = icmp eq i32 %head_kind, 33
@@ -784,11 +767,7 @@ check_eq_ptr:
 
 check_ne_ptr:
   %is_ne_ptr = icmp eq i32 %head_kind, 56
-  br i1 %is_ne_ptr, label %parse_ne_ptr, label %check_print
-
-check_print:
-  %is_print = icmp eq i32 %head_kind, 45
-  br i1 %is_print, label %parse_print, label %unknown_operator
+  br i1 %is_ne_ptr, label %parse_ne_ptr, label %unknown_operator
 
 unknown_operator:
   call void @weave_parse_error_unknown_operator()
@@ -1414,50 +1393,6 @@ parse_eq_ptr:
 
 parse_ne_ptr:
   br label %parse_binary
-
-parse_print:
-  %print_start = call i64 @weave_parser_current_start(ptr %parser)
-  %print_len = call i64 @weave_parser_current_length(ptr %parser)
-  call void @weave_parser_advance(ptr %parser)
-
-  %print_arg = call i64 @weave_parse_expr(ptr %parser, ptr %ast)
-  %print_arg_failed = icmp slt i64 %print_arg, 0
-  br i1 %print_arg_failed, label %fail, label %print_close
-
-print_close:
-  %print_close_status = call i32 @weave_parser_expect(ptr %parser, i32 2)
-  %print_close_failed = icmp ne i32 %print_close_status, 0
-  br i1 %print_close_failed, label %fail, label %make_print
-
-make_print:
-  %print_list = call i64 @weave_ast_push(
-    ptr %ast,
-    i32 20,
-    i64 %print_arg,
-    i64 -1,
-    i64 0,
-    i64 0,
-    i64 0
-  )
-  %print_wrapper = call i64 @weave_ast_push(
-    ptr %ast,
-    i32 20,
-    i64 %print_list,
-    i64 -1,
-    i64 1,
-    i64 0,
-    i64 0
-  )
-  %print_node = call i64 @weave_ast_push(
-    ptr %ast,
-    i32 9,
-    i64 %print_wrapper,
-    i64 -1,
-    i64 1,
-    i64 %print_start,
-    i64 %print_len
-  )
-  ret i64 %print_node
 
 fail:
   ret i64 -1

@@ -8,6 +8,13 @@ stages consume published SDKs.
 
 ## [Unreleased]
 
+### Removed
+
+- Five Stage 0 WIR forms absent from the pinned `weavec1` production corpus:
+  `block`, `const_string`, `print`, `gt_i64`, and `ge_i64`.
+- The print-specific LLVM lowering path; required string output remains available
+  through `call_i32 puts` with `const_string_ptr`.
+
 ## [0.3.3] — 2026-07-25
 
 ### Added

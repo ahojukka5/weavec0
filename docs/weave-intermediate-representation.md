@@ -285,12 +285,12 @@ Lowering idea:
 
 ---
 
-### `(const_string TEXT)`
+### `(const_string_ptr TEXT)`
 
 Example:
 
 ```lisp
-(const_string "hello")
+(const_string_ptr "hello")
 ```
 
 Possible lowering:

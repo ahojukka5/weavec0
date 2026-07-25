@@ -140,7 +140,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; TOKEN_RESERVED_21 = 21
 ; TOKEN_RESERVED_22 = 22
 ; TOKEN_RESERVED_23 = 23
-; TOKEN_BLOCK   = 24
+; TOKEN_RESERVED_24 = 24
 ; TOKEN_CORE_MODULE  = 25
 ; TOKEN_CORE_VERSION = 26
 ; TOKEN_DECLS        = 27
@@ -157,11 +157,11 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; TOKEN_CONST_I64    = 38
 ; TOKEN_I64          = 39
 ; TOKEN_CAST_I64_TO_I32 = 40
-; TOKEN_CONST_STRING = 41
+; TOKEN_RESERVED_41 = 41
 ; TOKEN_ADD_I64      = 42
 ; TOKEN_MUL_I64      = 43
 ; TOKEN_ADD_I32      = 44
-; TOKEN_PRINT        = 45
+; TOKEN_RESERVED_45 = 45
 ; TOKEN_LT_I64       = 46
 ; TOKEN_LE_I64       = 47
 ; TOKEN_NE_I64       = 48
@@ -207,8 +207,8 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 ; TOKEN_CONDITION    = 88
 ; TOKEN_SUB_I32      = 89
 ; TOKEN_GT_I32       = 90
-; TOKEN_GT_I64       = 91
-; TOKEN_GE_I64       = 92
+; TOKEN_RESERVED_91 = 91
+; TOKEN_RESERVED_92 = 92
 ;
 ; Add new token kinds only when a bootstrap test requires them.
 
