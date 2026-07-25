@@ -6,8 +6,8 @@ usage() {
   cat <<'EOF'
 usage: scripts/package-linux-release.sh <glibc|musl> <version> [output-dir]
 
-Build a static Linux x86-64 weavec0 bootstrap SDK and package it as a .tar.gz
-archive. Run ./build.sh first so the compiler and module bitcode exist under
+Build a static Linux x86-64 weavec0 SDK and package it as a .tar.gz archive.
+Run ./build.sh first so the linked compiler bitcode exists under
 build/bootstrap-tests/.
 EOF
 }
@@ -33,7 +33,6 @@ esac
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_ROOT="$ROOT/build/bootstrap-tests"
 FULL_BITCODE="$BUILD_ROOT/weavec0.bc"
-BITCODE_DIR="$BUILD_ROOT/bc"
 RELEASE_BUILD="$ROOT/build/release/$LIBC"
 PACKAGE_NAME="weavec0-${VERSION}-linux-x86_64-${LIBC}"
 PACKAGE_DIR="$RELEASE_BUILD/$PACKAGE_NAME"
@@ -45,22 +44,13 @@ ARCHIVE="$ARCHIVE_DIR/$PACKAGE_NAME.tar.gz"
 FULL_OBJECT="$RELEASE_BUILD/weavec0-main.o"
 RUNTIME_OBJECT="$RELEASE_BUILD/runtime.o"
 BINARY="$BIN_DIR/weavec0"
-BOOTSTRAP_BITCODE="$LIB_DIR/weavec0-bootstrap.bc"
-BOOTSTRAP_OBJECT="$LIB_DIR/weavec0-bootstrap.o"
 RUNTIME_LIBRARY="$LIB_DIR/libweavec0-runtime.a"
 SMOKE_LL="$RELEASE_BUILD/smoke.ll"
 SMOKE_BC="$RELEASE_BUILD/smoke.bc"
-
-BOOTSTRAP_MODULES=(
-  01_runtime_bindings
-  02_strings
-  03_tokens
-  04_lexer
-  05_ast
-  06_parser
-  07_emit_llvm
-  08_driver
-)
+SMOKE_OBJECT="$RELEASE_BUILD/smoke.o"
+SMOKE_BINARY="$RELEASE_BUILD/smoke"
+EXPECTED_FILES="$RELEASE_BUILD/expected-files.txt"
+ACTUAL_FILES="$RELEASE_BUILD/actual-files.txt"
 
 require_tool() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -71,9 +61,10 @@ require_tool() {
 
 require_tool ar
 require_tool clang
+require_tool diff
 require_tool file
+require_tool find
 require_tool llvm-as
-require_tool llvm-link
 require_tool llvm-nm
 require_tool readelf
 require_tool tar
@@ -88,29 +79,13 @@ if [[ ! -s "$FULL_BITCODE" ]]; then
   exit 1
 fi
 
-bootstrap_inputs=()
-for module in "${BOOTSTRAP_MODULES[@]}"; do
-  input="$BITCODE_DIR/$module.bc"
-  if [[ ! -s "$input" ]]; then
-    printf 'missing bootstrap module bitcode: %s\n' "$input" >&2
-    exit 1
-  fi
-  bootstrap_inputs+=("$input")
-done
-
 rm -rf "$RELEASE_BUILD"
 mkdir -p "$BIN_DIR" "$LIB_DIR" "$INCLUDE_DIR" "$ARCHIVE_DIR"
 
-# The executable contains the Stage 0 entry point. The reusable bootstrap
-# component deliberately links only modules 01-08 and therefore has no main.
+# Stage 0 is a build-time compiler. The SDK intentionally publishes only the
+# static compiler, the matching runtime implementation, and ABI metadata. It
+# does not export compiler implementation objects or bitcode.
 clang -Wno-override-module -O2 -c "$FULL_BITCODE" -o "$FULL_OBJECT"
-llvm-link "${bootstrap_inputs[@]}" -o "$BOOTSTRAP_BITCODE"
-clang -Wno-override-module -O2 -c "$BOOTSTRAP_BITCODE" -o "$BOOTSTRAP_OBJECT"
-
-if llvm-nm "$BOOTSTRAP_BITCODE" | grep -Eq '[[:space:]][Tt][[:space:]]+main$'; then
-  printf 'bootstrap support unexpectedly defines main\n' >&2
-  exit 1
-fi
 
 case "$LIBC" in
   glibc)
@@ -132,38 +107,98 @@ if readelf -l "$BINARY" | grep -q 'INTERP'; then
   exit 1
 fi
 
-file "$BINARY"
-file "$BOOTSTRAP_OBJECT"
+# Verify that the runtime archive exposes the complete documented ABI.
+for symbol in \
+  weave_rt_fatal \
+  weave_rt_read_file \
+  weave_rt_write_file \
+  weave_rt_stdout \
+  weave_rt_stderr
+do
+  if ! llvm-nm --defined-only "$RUNTIME_LIBRARY" | \
+      grep -Eq "[[:space:]]${symbol}$"; then
+    printf 'runtime library is missing required symbol: %s\n' "$symbol" >&2
+    exit 1
+  fi
+done
 
-# Exercise the packaged compiler itself, not only the development binary.
+file "$BINARY"
+file "$RUNTIME_LIBRARY"
+
+# Exercise the packaged compiler, then assemble, statically link, and execute
+# its output. Correctness is checked before the archive is created.
 "$BINARY" "$ROOT/test/02_return_42.wir" "$SMOKE_LL"
 llvm-as "$SMOKE_LL" -o "$SMOKE_BC"
+clang -Wno-override-module -O2 -c "$SMOKE_LL" -o "$SMOKE_OBJECT"
+case "$LIBC" in
+  glibc) clang -static "$SMOKE_OBJECT" -o "$SMOKE_BINARY" ;;
+  musl) musl-gcc -static "$SMOKE_OBJECT" -o "$SMOKE_BINARY" ;;
+esac
+
+set +e
+"$SMOKE_BINARY"
+smoke_status=$?
+set -e
+if [[ "$smoke_status" != 42 ]]; then
+  printf 'packaged compiler smoke test: expected exit 42, got %s\n' \
+    "$smoke_status" >&2
+  exit 1
+fi
 
 if command -v strip >/dev/null 2>&1; then
   strip --strip-unneeded "$BINARY"
-  strip --strip-unneeded "$BOOTSTRAP_OBJECT"
 fi
 
-cp "$ROOT/runtime.h" "$INCLUDE_DIR/"
-cp "$ROOT/README.md" "$PACKAGE_DIR/"
-cp "$ROOT/VERSION" "$PACKAGE_DIR/"
+cp "$ROOT/runtime.h" "$INCLUDE_DIR/runtime.h"
+cp "$ROOT/README.md" "$PACKAGE_DIR/README.md"
+cp "$ROOT/VERSION" "$PACKAGE_DIR/VERSION"
+
 if [[ -f "$ROOT/LICENSE" ]]; then
-  cp "$ROOT/LICENSE" "$PACKAGE_DIR/"
+  cp "$ROOT/LICENSE" "$PACKAGE_DIR/LICENSE"
 elif [[ -f "$ROOT/LICENSE.txt" ]]; then
-  cp "$ROOT/LICENSE.txt" "$PACKAGE_DIR/"
+  cp "$ROOT/LICENSE.txt" "$PACKAGE_DIR/LICENSE"
+else
+  printf 'missing LICENSE file\n' >&2
+  exit 1
 fi
 
-cat > "$PACKAGE_DIR/SDK-MANIFEST.txt" <<EOF
+if [[ -f "$ROOT/NOTICE" ]]; then
+  cp "$ROOT/NOTICE" "$PACKAGE_DIR/NOTICE"
+elif [[ -f "$ROOT/NOTICE.txt" ]]; then
+  cp "$ROOT/NOTICE.txt" "$PACKAGE_DIR/NOTICE"
+else
+  printf 'missing NOTICE file\n' >&2
+  exit 1
+fi
+
+cat > "$PACKAGE_DIR/SDK-MANIFEST" <<EOF
 name=weavec0
 version=$VERSION
 target=linux-x86_64
 libc=$LIBC
 compiler=bin/weavec0
-bootstrap_bitcode=lib/weavec0-bootstrap.bc
-bootstrap_object=lib/weavec0-bootstrap.o
 runtime_library=lib/libweavec0-runtime.a
 runtime_header=include/runtime.h
 EOF
+
+# Enforce the minimal archive contract exactly. This catches both missing files
+# and accidental reintroduction of compiler implementation artifacts.
+cat > "$EXPECTED_FILES" <<'EOF'
+LICENSE
+NOTICE
+README.md
+SDK-MANIFEST
+VERSION
+bin/weavec0
+include/runtime.h
+lib/libweavec0-runtime.a
+EOF
+find "$PACKAGE_DIR" -type f -printf '%P\n' | LC_ALL=C sort > "$ACTUAL_FILES"
+LC_ALL=C sort -o "$EXPECTED_FILES" "$EXPECTED_FILES"
+if ! diff -u "$EXPECTED_FILES" "$ACTUAL_FILES"; then
+  printf 'SDK archive contents do not match the minimal contract\n' >&2
+  exit 1
+fi
 
 rm -f "$ARCHIVE"
 tar -C "$RELEASE_BUILD" -czf "$ARCHIVE" "$PACKAGE_NAME"
