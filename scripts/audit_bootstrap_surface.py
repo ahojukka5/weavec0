@@ -182,8 +182,6 @@ def reachable_functions(graph: dict[str, set[str]], roots: set[str]) -> set[str]
     return seen
 
 
-
-
 def legacy_implementation_residuals(root: Path) -> list[dict[str, str]]:
     checks = {
         "src/04_lexer.ll": {
@@ -202,7 +200,7 @@ def legacy_implementation_residuals(root: Path) -> list[dict[str, str]]:
             "legacy gt_i64 lowering": r"@weave\.emit\.icmp_gt_i64",
             "legacy ge_i64 lowering": r"@weave\.emit\.icmp_ge_i64",
         },
-        "docs/weave-intermediate-representation.md": {
+        "docs/wir.md": {
             "legacy print documentation": r"\(print\b",
             "legacy const_string documentation": r"\(const_string\s",
         },
@@ -214,6 +212,7 @@ def legacy_implementation_residuals(root: Path) -> list[dict[str, str]]:
             if re.search(pattern, source, re.MULTILINE):
                 residuals.append({"path": relative, "description": description})
     return residuals
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()

@@ -8,6 +8,19 @@ stages consume published SDKs.
 
 ## [Unreleased]
 
+### Added
+
+- A documentation index, a dedicated Stage 0 architecture document, and an
+  automated audit for lowercase documentation names and valid local links.
+
+### Changed
+
+- Standardized maintained files under `docs/` on lowercase kebab-case names.
+- Replaced the obsolete speculative WIR essay with the current WIR v2 bootstrap
+  profile contract and pointed the bootstrap-surface audit at that canonical
+  document.
+- Removed retired `weavec2` and `weavefront` names from current build guidance.
+
 ## [0.4.0] — 2026-07-25
 
 ### Changed
