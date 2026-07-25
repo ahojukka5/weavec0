@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: Apache-2.0
+name: apply CLI test integration
+
+on:
+  push:
+    branches: [agent/cover-cli-error-paths]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/cover-cli-error-paths
+          fetch-depth: 0
+
+      - name: Integrate CLI tests into normal and coverage ladders
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          build = Path("build.sh")
+          text = build.read_text(encoding="utf-8")
+          old = '''main() {
+            build_weavec0
+
+            log "correctness phase"
+            run_manifest_correctness
+'''
+          new = '''main() {
+            build_weavec0
+
+            log "CLI error-path phase"
+            bash "$BOOTSTRAP_DIR/scripts/run-cli-tests.sh" \
+              "$WEAVEC0" "$BUILD_DIR/cli-tests"
+
+            log "correctness phase"
+            run_manifest_correctness
+'''
+          if text.count(old) != 1:
+              raise SystemExit("build.sh integration anchor not found exactly once")
+          build.write_text(text.replace(old, new), encoding="utf-8")
+
+          coverage = Path("scripts/run-coverage.sh")
+          text = coverage.read_text(encoding="utf-8")
+          old = ''': > "$RAW_TSV"
+
+          run_compiler_case() {
+'''
+          new = ''': > "$RAW_TSV"
+
+          printf '[coverage] run CLI error-path corpus\\n' >&2
+          WEAVEC0_COVERAGE_OUT="$RAW_TSV" \
+            bash "$ROOT/scripts/run-cli-tests.sh" \
+              "$INSTRUMENTED_BIN" "$BUILD_DIR/cli-tests"
+
+          run_compiler_case() {
+'''
+          if text.count(old) != 1:
+              raise SystemExit("run-coverage.sh integration anchor not found exactly once")
+          coverage.write_text(text.replace(old, new), encoding="utf-8")
+          PY
+
+      - name: Commit focused integration
+        shell: bash
+        run: |
+          rm .github/workflows/apply-cli-test-integration.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add build.sh scripts/run-coverage.sh \
+            .github/workflows/apply-cli-test-integration.yml
+          git commit -m "test: run CLI errors in all ladders"
+          git push origin HEAD:agent/cover-cli-error-paths
