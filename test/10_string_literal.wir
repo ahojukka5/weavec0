@@ -1,6 +1,6 @@
 ; 10_string_literal.wir
 ; purpose: checks string literal tokenization and emission path.
-; verifies const_string handling with runtime print interaction.
+; verifies const_string_ptr handling through the required puts call path.
 ; expected runtime behavior: process exits with code 42.
 
 (core-module
@@ -17,9 +17,9 @@
       (params)
       (returns i32)
       (do
-        (print
-          (const_string "hello from weave")
-        ) ;; print
+        (call_i32 puts
+          (const_string_ptr "hello from weave")
+        ) ;; call_i32
         (return
           (const_i32 42)
         ) ;; return

@@ -57,7 +57,6 @@ pass 35_sub_i32                         42
 pass 36_mul_i32                         42
 pass 37_div_i32                         42
 pass 38_i32_comparisons_full            42
-pass 39_i64_ge_gt                       42
 pass 40_call_bool_direct                42
 pass 41_load_store_ptr                  42
 pass 42_empty_do                        42

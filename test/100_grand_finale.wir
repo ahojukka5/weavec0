@@ -2,9 +2,9 @@
 ; purpose: capstone test that combines many admitted features in one program:
 ;   externs, malloc/free, pointer arithmetic, i64 store/load through chained
 ;   ptr_add, a helper function call, an if/else, a while loop, locals of
-;   three different types, casts, and a print. Nothing new — just a denser
+;   three different types, casts, and a puts call. Nothing new — just a denser
 ;   exercise of the existing surface than any single earlier case.
-; expected runtime behavior: process exits with code 42 (prints "ok").
+; expected runtime behavior: process exits with code 42 (call_i32 putss "ok").
 
 (core-module
   (core-version 1)
@@ -102,7 +102,7 @@
           ) ;; condition
           (then
             (do
-              (print (const_string "ok"))
+              (call_i32 puts (const_string_ptr "ok"))
             ) ;; do
           ) ;; then
           (else (do)) ;; else
