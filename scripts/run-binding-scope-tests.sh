@@ -65,6 +65,8 @@ POSITIVE_LL="$WORK_DIR/cross-function-local-scope.ll"
 POSITIVE_BC="$WORK_DIR/cross-function-local-scope.bc"
 POSITIVE_EXE="$WORK_DIR/cross-function-local-scope.out"
 
+# The spelling `x` deliberately denotes an i32 local, an i64 local, and an i32
+# parameter in three different functions. None may influence another function.
 cat > "$POSITIVE_WIR" <<'WIR'
 (core-module
   (core-version 1)
