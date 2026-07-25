@@ -4,12 +4,15 @@ name: apply CLI test integration
 on:
   push:
     branches: [agent/cover-cli-error-paths]
+  pull_request:
+    branches: [master]
 
 permissions:
   contents: write
 
 jobs:
   apply:
+    if: github.head_ref == 'agent/cover-cli-error-paths' || github.ref == 'refs/heads/agent/cover-cli-error-paths'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
