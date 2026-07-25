@@ -57,6 +57,10 @@ jobs:
   coverage:
     name: LLVM path & bootstrap-surface audit
     runs-on: ubuntu-latest
+    env:
+      WEAVEC0_MIN_FUNCTION_COVERAGE: "95"
+      WEAVEC0_MIN_BLOCK_COVERAGE: "87"
+      WEAVEC0_MIN_BRANCH_OUTCOME_COVERAGE: "70"
 
     steps:
       - name: Checkout weavec0
