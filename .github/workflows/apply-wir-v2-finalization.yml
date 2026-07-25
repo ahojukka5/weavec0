@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: Apache-2.0
+name: apply WIR v2 finalization
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - scripts/apply-wir-v2-finalization.py
+      - .github/workflows/apply-wir-v2-finalization.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'agent/wir-v2-finalize'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/wir-v2-finalize
+          fetch-depth: 0
+
+      - name: Install LLVM toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq llvm clang
+
+      - name: Configure commit identity
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+      - name: Apply migration
+        run: python3 scripts/apply-wir-v2-finalization.py agent/wir-v2
+
+      - name: Validate Stage 0
+        run: |
+          python3 -m py_compile scripts/audit_bootstrap_surface.py
+          bash scripts/run-tests.sh
+          git diff --check
+
+      - name: Remove temporary machinery
+        run: |
+          git rm scripts/apply-wir-v2-finalization.py
+          git rm .github/workflows/apply-wir-v2-finalization.yml
+          git rm .github/workflows/export-bootstrap-sources.yml
+
+      - name: Commit and push
+        run: |
+          git add -A
+          git commit -m 'release: finalize WIR v2 seed compiler'
+          git push origin HEAD:agent/wir-v2-finalize
