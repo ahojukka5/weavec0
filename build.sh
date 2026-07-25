@@ -6,19 +6,23 @@ set -euo pipefail
 # weavec0 — Stage 0 bootstrap compiler build & test ladder
 # =============================================================================
 #
-# This script does two things, in order:
+# This script runs three phases, in order:
 #
-#   1. Assembles the hand-written LLVM-IR Stage 0 compiler (`weavec0`) from
+#   1. Assemble the hand-written LLVM-IR Stage 0 compiler (`weavec0`) from
 #      the source modules under `src/` plus the small C runtime in `runtime.c`.
-#   2. Runs the curated test ladder under `test/`, driven by `test/manifest.txt`.
+#   2. Run the complete correctness ladder under `test/`, driven by
+#      `test/manifest.txt`.
+#   3. After every correctness case has passed, compare all generated LLVM IR
+#      files with their checked-in golden fixtures.
 #
 # Each positive test case (manifest line: `pass <name> <exit>`) verifies:
 #
 #   - weavec0 compiles `test/<name>.wir` to LLVM IR
-#   - the generated LLVM matches the checked-in golden `test/<name>.expected.ll`
 #   - `llvm-as` accepts the generated LLVM
 #   - `clang` builds an executable from it
 #   - the executable exits with the declared code
+#   - in the final phase, the generated LLVM matches
+#     `test/<name>.expected.ll` exactly
 #
 # Each negative case (`fail <name> <substring>`) verifies:
 #
@@ -203,12 +207,11 @@ build_weavec0() {
 # Test runners
 # -----------------------------------------------------------------------------
 
-run_case() {
+run_correctness_case() {
   local name="$1"
   local expected_exit="$2"
 
   local src="$TEST_DIR/${name}.wir"
-  local expected_ll="$TEST_DIR/${name}.expected.ll"
   local ll="$BUILD_DIR/${name}.ll"
   local generated_bc="$BUILD_DIR/${name}.generated.bc"
   local exe="$BUILD_DIR/${name}.out"
@@ -217,6 +220,8 @@ run_case() {
 
   log "compile $name"
   "$WEAVEC0" "$src" "$ll"
+
+  [[ -s "$ll" ]] || fail "compiler produced empty LLVM IR for $name"
 
   log "llvm-as $name"
   llvm-as "$ll" -o "$generated_bc"
@@ -237,27 +242,48 @@ run_case() {
     fail "$name: expected exit $expected_exit, got $actual_exit"
   fi
 
-  [[ -s "$ll" ]] || fail "compiler produced empty LLVM IR for $name"
+  log "ok correctness $name"
+}
+
+compare_golden_case() {
+  local name="$1"
+
+  local expected_ll="$TEST_DIR/${name}.expected.ll"
+  local ll="$BUILD_DIR/${name}.ll"
+
+  [[ -s "$ll" ]] || {
+    printf '[bootstrap] error: missing generated LLVM IR for golden comparison: %s\n' "$ll" >&2
+    return 1
+  }
 
   log "compare $name"
   if [[ ! -f "$expected_ll" ]]; then
     if (( REGEN_GOLDENS )); then
       cp "$ll" "$expected_ll"
       log "regen $name (new golden)"
-    else
-      fail "missing expected LLVM IR: $expected_ll (rerun with --regen-goldens to create)"
+      return 0
     fi
-  elif ! diff -u "$expected_ll" "$ll" >/dev/null; then
-    if (( REGEN_GOLDENS )); then
-      cp "$ll" "$expected_ll"
-      log "regen $name (updated golden)"
-    else
-      diff -u "$expected_ll" "$ll" || true
-      fail "$name: generated LLVM IR differs from expected fixture (rerun with --regen-goldens to accept)"
-    fi
+
+    printf '[bootstrap] error: missing expected LLVM IR: %s (rerun with --regen-goldens to create)\n' \
+      "$expected_ll" >&2
+    return 1
   fi
 
-  log "ok $name"
+  if diff -u "$expected_ll" "$ll" >/dev/null; then
+    log "ok golden $name"
+    return 0
+  fi
+
+  if (( REGEN_GOLDENS )); then
+    cp "$ll" "$expected_ll"
+    log "regen $name (updated golden)"
+    return 0
+  fi
+
+  diff -u "$expected_ll" "$ll" || true
+  printf '[bootstrap] error: %s: generated LLVM IR differs from expected fixture (rerun with --regen-goldens to accept)\n' \
+    "$name" >&2
+  return 1
 }
 
 run_compile_fail_case() {
@@ -298,12 +324,12 @@ run_compile_fail_case() {
     fail "$name: expected diagnostic containing: $expected_message"
   fi
 
-  log "ok $name"
+  log "ok correctness $name"
 }
 
-# Drive the ladder from test/manifest.txt — one tab-or-space separated line
-# per case. Blank lines and `#`-prefixed comments are skipped.
-run_manifest() {
+# First pass: run every semantic correctness check. Golden-output drift must not
+# prevent later correctness cases from running.
+run_manifest_correctness() {
   [[ -f "$MANIFEST" ]] || fail "missing test manifest: $MANIFEST"
 
   local kind name rest
@@ -314,16 +340,51 @@ run_manifest() {
 
     read -r kind name rest <<<"$line"
     case "$kind" in
-      pass) run_case "$name" "$rest" ;;
+      pass) run_correctness_case "$name" "$rest" ;;
       fail) run_compile_fail_case "$name" "$rest" ;;
       *)    fail "unknown manifest entry kind: $kind (line: $line)" ;;
     esac
   done < "$MANIFEST"
 }
 
+# Second pass: compare every positive case after the complete correctness phase.
+# Report all stale or missing goldens in one run instead of stopping at the first.
+run_manifest_goldens() {
+  [[ -f "$MANIFEST" ]] || fail "missing test manifest: $MANIFEST"
+
+  local kind name rest
+  local failures=0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%%#*}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    [[ -z "$line" ]] && continue
+
+    read -r kind name rest <<<"$line"
+    case "$kind" in
+      pass)
+        if ! compare_golden_case "$name"; then
+          failures=$((failures + 1))
+        fi
+        ;;
+      fail) ;;
+      *)    fail "unknown manifest entry kind: $kind (line: $line)" ;;
+    esac
+  done < "$MANIFEST"
+
+  if (( failures != 0 )); then
+    fail "$failures golden fixture(s) differed from generated LLVM IR"
+  fi
+}
+
 main() {
   build_weavec0
-  run_manifest
+
+  log "correctness phase"
+  run_manifest_correctness
+
+  log "golden comparison phase"
+  run_manifest_goldens
+
   log "all bootstrap tests passed"
 }
 
