@@ -182,6 +182,39 @@ def reachable_functions(graph: dict[str, set[str]], roots: set[str]) -> set[str]
     return seen
 
 
+
+
+def legacy_implementation_residuals(root: Path) -> list[dict[str, str]]:
+    checks = {
+        "src/04_lexer.ll": {
+            "legacy block keyword": r"@weave\.kw\.block\b",
+            "legacy const_string keyword": r"@weave\.kw\.const_string\s*=",
+            "legacy print keyword": r"@weave\.kw\.print\b",
+            "legacy gt_i64 keyword": r"@weave\.kw\.gt_i64\b",
+            "legacy ge_i64 keyword": r"@weave\.kw\.ge_i64\b",
+        },
+        "src/06_parser.ll": {
+            "legacy block token branch": r"%is_block\s*=\s*icmp eq i32 %head_kind, 24",
+            "legacy print parser branch": r"^check_print:",
+        },
+        "src/07_emit_llvm.ll": {
+            "legacy print lowering": r"@weave\.emit\.(?:print_name|puts_call)",
+            "legacy gt_i64 lowering": r"@weave\.emit\.icmp_gt_i64",
+            "legacy ge_i64 lowering": r"@weave\.emit\.icmp_ge_i64",
+        },
+        "docs/weave-intermediate-representation.md": {
+            "legacy print documentation": r"\(print\b",
+            "legacy const_string documentation": r"\(const_string\s",
+        },
+    }
+    residuals: list[dict[str, str]] = []
+    for relative, patterns in checks.items():
+        source = (root / relative).read_text(encoding="utf-8")
+        for description, pattern in patterns.items():
+            if re.search(pattern, source, re.MULTILINE):
+                residuals.append({"path": relative, "description": description})
+    return residuals
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--weavec0", type=Path, required=True)
@@ -225,6 +258,7 @@ def main() -> int:
     roots = {"main", *stage0_dependencies}
     reachable = reachable_functions(weavec0_graph, roots)
     unreachable = sorted(weavec0_definitions - reachable)
+    legacy_residuals = legacy_implementation_residuals(args.weavec0)
 
     unused = [keyword for keyword in keywords if source_symbols[keyword] == 0]
     test_only = [keyword for keyword in unused if test_symbols[keyword] > 0]
@@ -246,6 +280,9 @@ def main() -> int:
     print("weavec0 functions unreachable from main or pinned weavec1:")
     for name in unreachable:
         print(f"  {name}")
+    print("legacy Stage 0 implementation residuals:")
+    for item in legacy_residuals:
+        print(f"  {item['path']}: {item['description']}")
 
     report = {
         "weavec1_commit": weavec1_commit,
@@ -265,10 +302,13 @@ def main() -> int:
         "weavec1_stage0_direct_dependencies": stage0_dependencies,
         "weavec0_reachability_roots": sorted(roots),
         "unreachable_weavec0_functions": unreachable,
+        "legacy_implementation_residuals": legacy_residuals,
     }
     if args.json_path:
         args.json_path.parent.mkdir(parents=True, exist_ok=True)
         args.json_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if unused or unreachable or legacy_residuals:
+        return 1
     return 0
 
 

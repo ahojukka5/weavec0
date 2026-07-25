@@ -76,14 +76,14 @@ pass before instrumentation begins.
 
 ## Current baseline
 
-After removing five helpers proven unreachable by both the static call graph and
-the combined corpus, the measurement is:
+After the WIR v2 bootstrap-profile finalization, the combined Stage 0,
+command-line, and pinned Stage 1 workload measures:
 
 | Metric | Covered | Total | Coverage |
 |---|---:|---:|---:|
-| Functions | 215 | 219 | 98.17% |
-| Basic blocks | 1,283 | 1,423 | 90.16% |
-| Branch outcomes | 1,052 | 1,458 | 72.15% |
+| Functions | 230 | 230 | 100.00% |
+| Basic blocks | 1,352 | 1,461 | 92.54% |
+| Branch outcomes | 1,174 | 1,490 | 78.79% |
 
 The static report contains no function unreachable from both Stage 0 `main` and
 the pinned Stage 1 dependency roots.
@@ -104,6 +104,6 @@ evidence agree:
 - dynamically uncovered by both the tests and the Stage 1 compilation corpus;
 - not required by the published WIR or runtime compatibility contract.
 
-The final condition is essential. Removing an admitted WIR v1 form is a contract
-change even when current `weavec1` sources do not use it. Such removals must be
-made through an intentional new bootstrap contract or version, not silently.
+The final condition is essential. Removing an admitted Stage 0 bootstrap-profile form is a contract
+change even when current `weavec1` sources do not use it. Such removals require an intentional bootstrap-profile version transition,
+not a silent compatibility break.

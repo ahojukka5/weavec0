@@ -28,7 +28,7 @@ run_case() {
 
   cat > "$wir" <<CASE
 (core-module
-  (core-version 1)
+  (core-version 2)
   (decls
     (fn main
       (params)

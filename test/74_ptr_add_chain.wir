@@ -4,7 +4,7 @@
 ; expected runtime behavior: process exits with code 42 (storing 42 at base+16, reading it back).
 
 (core-module
-  (core-version 1)
+  (core-version 2)
   (decls
     (extern malloc
       (params

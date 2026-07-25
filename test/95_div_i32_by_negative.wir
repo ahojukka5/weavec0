@@ -4,7 +4,7 @@
 ; expected runtime behavior: process exits with code 42 (-84 / -2).
 
 (core-module
-  (core-version 1)
+  (core-version 2)
   (decls
     (fn main
       (params)

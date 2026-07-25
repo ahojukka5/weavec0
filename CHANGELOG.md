@@ -8,12 +8,28 @@ stages consume published SDKs.
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-07-25
+
+### Changed
+
+- Stage 0 now accepts only WIR core version 2 and pins the corresponding
+  `weavec1` source corpus.
+- Documented Stage 0 as a strict bootstrap profile of the complete Stage 1 WIR
+  backend.
+
 ### Removed
 
-- Five Stage 0 WIR forms absent from the pinned `weavec1` production corpus:
-  `block`, `const_string`, `print`, `gt_i64`, and `ge_i64`.
-- The print-specific LLVM lowering path; required string output remains available
-  through `call_i32 puts` with `const_string_ptr`.
+- Five forms absent from the pinned Stage 1 source modules: `block`,
+  `const_string`, `print`, `gt_i64`, and `ge_i64`.
+- The remaining unreachable parser branches for the legacy `block` alias.
+- The print-specific LLVM lowering path; required string output uses ordinary
+  `call_i32 puts` with `const_string_ptr`.
+
+### Added
+
+- Static audit checks that reject residual implementations of removed Stage 0
+  compatibility forms.
+- A regression proving the superseded core version 1 contract is rejected.
 
 ## [0.3.3] — 2026-07-25
 

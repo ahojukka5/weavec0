@@ -7,7 +7,7 @@
 
 ## Role
 
-`weavec0` compiles the stable Weave intermediate representation, WIR (`*.wir`),
+`weavec0` compiles the WIR core version 2 bootstrap profile (`*.wir`),
 to LLVM IR (`*.ll`). The compiler is written directly in LLVM IR and uses a
 small C runtime for file I/O, allocation, output, and fatal diagnostics.
 
@@ -25,8 +25,8 @@ small, auditable, deterministic, and capable of building `weavec1`.
 ## Current status
 
 - The source test ladder contains 104 cases: 93 positive cases and 11 expected failures.
-- The combined test and pinned-`weavec1` corpus covers 98.17% of functions,
-  90.16% of basic blocks, and 72.15% of conditional branch outcomes.
+- The combined test and pinned-`weavec1` corpus covers 100% of functions,
+  92.54% of basic blocks, and 78.79% of conditional branch outcomes.
 - The static audit reports no Stage 0 function unreachable from both the command
   line compiler and the pinned Stage 1 corpus.
 - CI enforces conservative coverage non-regression floors and publishes a
@@ -34,8 +34,8 @@ small, auditable, deterministic, and capable of building `weavec1`.
 - Minimal Linux x86-64 SDKs are published for glibc and musl.
 - `weavec1` uses `weavec0` only as a build-time compiler and does not embed the
   Stage 0 implementation in Stage 1 binaries.
-- The WIR and runtime boundaries are versioned bootstrap contracts.
-- The current release version is stored in [`VERSION`](VERSION).
+- WIR core version 2 and the runtime ABI are versioned bootstrap contracts.
+- The current release is 0.4.0; the authoritative value is stored in [`VERSION`](VERSION).
 
 ## Build from source
 

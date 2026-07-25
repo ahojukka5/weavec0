@@ -4,7 +4,7 @@
 ; expected runtime behavior: process exits with code 255 (low byte of 0xFFFFFFFF).
 
 (core-module
-  (core-version 1)
+  (core-version 2)
   (decls
     (fn main
       (params)

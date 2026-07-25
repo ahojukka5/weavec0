@@ -1,9 +1,9 @@
 ; 104_unsupported_core_version.wir
-; purpose: rejects a syntactically valid module that claims an unsupported WIR version.
+; purpose: rejects a syntactically valid module that claims the superseded WIR core version 1.
 ; expected compiler behavior: compile fails with diagnostic "parsing failed".
 
 (core-module
-  (core-version 2)
+  (core-version 1)
   (decls
     (fn main
       (params)

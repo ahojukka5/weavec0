@@ -6,7 +6,7 @@
 ;
 ; Responsibilities:
 ;   - drive a %weave.Parser cursor over the token stream produced by 04_lexer
-;   - parse `(core-module (core-version 1) (decls ...))` shape modules
+;   - parse `(core-module (core-version 2) (decls ...))` shape modules
 ;   - parse `(fn name (params ...) (returns T) (do ...))` function decls
 ;   - parse `(extern name ...)` extern decls (body is captured as a balanced
 ;     paren range — the signature itself is recovered later via name-keyed
@@ -2076,11 +2076,7 @@ check_store_ptr:
 
 check_store_i8:
   %is_store_i8 = icmp eq i32 %head_kind, 66
-  br i1 %is_store_i8, label %store_i8_stmt, label %check_block
-
-check_block:
-  %is_block = icmp eq i32 %head_kind, 24
-  br i1 %is_block, label %block_stmt, label %check_do
+  br i1 %is_store_i8, label %store_i8_stmt, label %check_do
 
 check_do:
   %is_do = icmp eq i32 %head_kind, 87
@@ -2179,10 +2175,6 @@ entry:
 
 read_head:
   %head_kind = call i32 @weave_parser_current_kind(ptr %parser)
-  %is_block = icmp eq i32 %head_kind, 24
-  br i1 %is_block, label %consume_head, label %check_do_head
-
-check_do_head:
   %is_do = icmp eq i32 %head_kind, 87
   br i1 %is_do, label %consume_head, label %fail
 
@@ -2429,7 +2421,7 @@ fail:
 ;
 ; Parse:
 ;   (core-module
-;     (core-version 1)
+;     (core-version 2)
 ;     (decls ...))
 ; ----------------------------------------------------------------------------
 

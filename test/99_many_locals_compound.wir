@@ -6,7 +6,7 @@
 ; expected runtime behavior: process exits with code 42 (sum + cast).
 
 (core-module
-  (core-version 1)
+  (core-version 2)
   (decls
     (fn main
       (params)
