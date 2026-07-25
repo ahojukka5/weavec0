@@ -2,9 +2,8 @@
 name: apply integer range fix
 
 on:
-  push:
-    branches:
-      - agent/reject-out-of-range-integers
+  pull_request:
+    branches: [master]
     paths:
       - scripts/apply-integer-range-fix.py
       - .github/workflows/apply-integer-range-fix.yml
@@ -14,11 +13,13 @@ permissions:
 
 jobs:
   apply:
+    if: github.head_ref == 'agent/reject-out-of-range-integers'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout branch
+      - name: Checkout source branch
         uses: actions/checkout@v4
         with:
+          ref: agent/reject-out-of-range-integers
           fetch-depth: 0
 
       - name: Install LLVM toolchain
