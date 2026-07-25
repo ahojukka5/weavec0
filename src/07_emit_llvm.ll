@@ -10,7 +10,7 @@
 ;     by name against a small admitted subset (puts, malloc, free); unknown
 ;     names are a hard error
 ;   - emit string-literal globals (`@.strN = private unnamed_addr ...`) for
-;     every (const_string ...) referenced by the program
+;     every (const_string_ptr ...) referenced by the program
 ;   - emit one `define <type> @<name>(...)` per function with an `entry:`
 ;     block, the function body, and a `}` closer
 ;   - lower statements (let, set, if, while, return, store_*, call_void) and

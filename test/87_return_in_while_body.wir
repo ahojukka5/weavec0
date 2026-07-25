@@ -5,7 +5,7 @@
 ; expected runtime behavior: process exits with code 42 (returned on iteration where i == 5).
 
 (core-module
-  (core-version 1)
+  (core-version 2)
   (decls
     (fn main
       (params)

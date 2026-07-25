@@ -4,7 +4,7 @@
 ; expected runtime behavior: process exits with code 42 (sign-preserving for small positive value).
 
 (core-module
-  (core-version 1)
+  (core-version 2)
   (decls
     (fn main
       (params)

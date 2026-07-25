@@ -3,7 +3,7 @@
 ; verifies the emitter fails with a clear diagnostic instead of producing broken IR.
 
 (core-module
-  (core-version 1)
+  (core-version 2)
   (decls
     (extern frobnicate
       (params

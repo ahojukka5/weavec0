@@ -7,7 +7,7 @@
 ; expected runtime behavior: process exits with code 42.
 
 (core-module
-  (core-version 1)
+  (core-version 2)
   (decls
     (fn shift_high
       (params (x i64))

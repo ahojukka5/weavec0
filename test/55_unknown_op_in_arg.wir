@@ -5,7 +5,7 @@
 ; expected runtime behavior: compile fails with diagnostic "unknown operator".
 
 (core-module
-  (core-version 1)
+  (core-version 2)
   (decls
     (fn main
       (params)

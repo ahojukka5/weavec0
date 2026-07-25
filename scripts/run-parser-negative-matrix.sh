@@ -54,11 +54,11 @@ run_case() {
 }
 
 expr_program() {
-  printf '(core-module (core-version 1) (decls (fn main (params) (returns i32) (do (return %s)))))' "$1"
+  printf '(core-module (core-version 2) (decls (fn main (params) (returns i32) (do (return %s)))))' "$1"
 }
 
 stmt_program() {
-  printf '(core-module (core-version 1) (decls (fn main (params) (returns i32) (do %s (return (const_i32 42))))))' "$1"
+  printf '(core-module (core-version 2) (decls (fn main (params) (returns i32) (do %s (return (const_i32 42))))))' "$1"
 }
 
 binary_matrix() {

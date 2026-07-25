@@ -9,7 +9,7 @@
 ;   and return 42).
 
 (core-module
-  (core-version 1)
+  (core-version 2)
   (decls
     (extern puts
       (params (text ptr))

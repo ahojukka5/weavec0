@@ -126,7 +126,7 @@ A WIR/TIR file currently has this structure:
 
 ```lisp
 (core-module
-  (core-version 1)
+  (core-version 2)
 
   (decls
 
@@ -137,7 +137,7 @@ Example:
 
 ```lisp
 (core-module
-  (core-version 1)
+  (core-version 2)
 
   (decls
 
@@ -174,7 +174,7 @@ Defines the WIR/TIR language version.
 Example:
 
 ```lisp
-(core-version 1)
+(core-version 2)
 ```
 
 ---
@@ -574,32 +574,11 @@ ret i32 42
 
 ---
 
-## Builtins
+## Stage 0 bootstrap profile
 
-### `(print VALUE)`
-
-Bootstrap builtin.
-
-Example:
-
-```lisp
-(print
-  (const_string "hello from weave"))
-```
-
-Current intended lowering:
-
-```llvm
-call i32 @puts(ptr @.str0)
-```
-
-This may later become:
-
-```text
-runtime function
-intrinsic
-external symbol
-```
+`weavec0` implements only the WIR v2 forms required by the pinned `weavec1`
+source modules. The complete WIR v2 backend lives in `weavec1`; Stage 0 is not
+expanded merely for feature parity.
 
 ---
 

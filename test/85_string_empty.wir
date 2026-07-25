@@ -4,7 +4,7 @@
 ; expected runtime behavior: process exits with code 42 (call_i32 putss a blank line).
 
 (core-module
-  (core-version 1)
+  (core-version 2)
   (decls
     (extern puts
       (params

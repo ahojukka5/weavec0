@@ -69,7 +69,7 @@ POSITIVE_EXE="$WORK_DIR/cross-function-local-scope.out"
 # parameter in three different functions. None may influence another function.
 cat > "$POSITIVE_WIR" <<'WIR'
 (core-module
-  (core-version 1)
+  (core-version 2)
   (decls
     (fn first
       (params)
@@ -122,31 +122,31 @@ fi
 count=$((count + 1))
 
 run_failure undefined-local-get '
-(core-module (core-version 1) (decls
+(core-module (core-version 2) (decls
   (fn main (params) (returns i32) (do
     (return (local_get missing))))))'
 
 run_failure undefined-param-get '
-(core-module (core-version 1) (decls
+(core-module (core-version 2) (decls
   (fn main (params) (returns i32) (do
     (return (param_get missing))))))'
 
 run_failure duplicate-parameters '
-(core-module (core-version 1) (decls
+(core-module (core-version 2) (decls
   (fn duplicate_parameters
     (params (x i32) (x i32))
     (returns i32)
     (do (return (param_get x))))))'
 
 run_failure duplicate-locals '
-(core-module (core-version 1) (decls
+(core-module (core-version 2) (decls
   (fn main (params) (returns i32) (do
     (let x i32 (const_i32 1))
     (let x i32 (const_i32 2))
     (return (local_get x))))))'
 
 run_failure parameter-local-shadowing '
-(core-module (core-version 1) (decls
+(core-module (core-version 2) (decls
   (fn parameter_local_shadowing
     (params (x i32))
     (returns i32)

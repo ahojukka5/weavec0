@@ -49,7 +49,7 @@ Removing `weavec0-bootstrap.bc` and `weavec0-bootstrap.o` changes the published
 archive layout. The minimal layout therefore begins at `v0.3.0`; existing
 `v0.2.1` release assets remain immutable.
 
-A downstream pin may be updated to `v0.3.0` only after the release exists. The
+A downstream pin may be updated to `v0.4.0` only after the release exists. The
 current `weavec1` build already accepts the minimal SDK because it uses Stage 0
 only as a build-time compiler and links its own generated modules with the
 runtime library.
@@ -95,8 +95,8 @@ Build and validate the source compiler:
 Create either SDK archive:
 
 ```bash
-bash scripts/package-linux-release.sh glibc v0.3.0 dist
-bash scripts/package-linux-release.sh musl v0.3.0 dist
+bash scripts/package-linux-release.sh glibc v0.4.0 dist
+bash scripts/package-linux-release.sh musl v0.4.0 dist
 ```
 
 The packaging script verifies the exact archive contents, runtime ABI, static
@@ -114,8 +114,8 @@ sha256sum --check SHA256SUMS
 Extract and use the compiler:
 
 ```bash
-tar -xzf weavec0-v0.3.0-linux-x86_64-musl.tar.gz
-cd weavec0-v0.3.0-linux-x86_64-musl
+tar -xzf weavec0-v0.4.0-linux-x86_64-musl.tar.gz
+cd weavec0-v0.4.0-linux-x86_64-musl
 bin/weavec0 input.wir output.ll
 ```
 

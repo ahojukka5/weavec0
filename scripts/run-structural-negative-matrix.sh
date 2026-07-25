@@ -57,78 +57,78 @@ run_case empty 'error: parsing failed' ''
 run_case empty-list 'error: parsing failed' '()'
 run_case module-empty 'error: parsing failed' '(core-module)'
 run_case module-no-decls 'error: parsing failed' \
-  '(core-module (core-version 1))'
+  '(core-module (core-version 2))'
 run_case module-truncated-decls 'error: parsing failed' \
-  '(core-module (core-version 1) (decls)'
+  '(core-module (core-version 2) (decls)'
 run_case version-missing 'error: parsing failed' \
   '(core-module (core-version) (decls))'
 run_case version-extra 'error: parsing failed' \
   '(core-module (core-version 1 2) (decls))'
 run_case wrong-decls 'error: parsing failed' \
-  '(core-module (core-version 1) (params))'
+  '(core-module (core-version 2) (params))'
 run_case trailing-token 'error: parsing failed' \
-  '(core-module (core-version 1) (decls)) junk'
+  '(core-module (core-version 2) (decls)) junk'
 run_case unknown-decl 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (bogus)))'
+  '(core-module (core-version 2) (decls (bogus)))'
 
 run_case fn-missing-name 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn)))'
+  '(core-module (core-version 2) (decls (fn)))'
 run_case fn-missing-params 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main)))'
+  '(core-module (core-version 2) (decls (fn main)))'
 run_case fn-missing-returns 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params))))'
+  '(core-module (core-version 2) (decls (fn main (params))))'
 run_case fn-return-type-missing 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns))))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns))))'
 run_case fn-return-type-invalid 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns foo) (do))))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns foo) (do))))'
 run_case fn-body-missing 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns i32))))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns i32))))'
 run_case fn-body-wrong 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns i32) (then))))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns i32) (then))))'
 run_case fn-extra 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns i32) (do) junk)))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns i32) (do) junk)))'
 
 run_case params-bare 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params x) (returns i32) (do))))'
+  '(core-module (core-version 2) (decls (fn main (params x) (returns i32) (do))))'
 run_case param-type-missing 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params (x)) (returns i32) (do))))'
+  '(core-module (core-version 2) (decls (fn main (params (x)) (returns i32) (do))))'
 run_case param-extra 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params (x i32 i64)) (returns i32) (do))))'
+  '(core-module (core-version 2) (decls (fn main (params (x i32 i64)) (returns i32) (do))))'
 run_case param-type-invalid 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params (x foo)) (returns i32) (do))))'
+  '(core-module (core-version 2) (decls (fn main (params (x foo)) (returns i32) (do))))'
 
 run_case if-no-condition 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns i32) (do (if)))))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns i32) (do (if)))))'
 run_case if-condition-empty 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns i32) (do (if (condition))))))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns i32) (do (if (condition))))))'
 run_case if-condition-extra 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns i32) (do (if (condition (const_bool true) (const_bool false)))))))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns i32) (do (if (condition (const_bool true) (const_bool false)))))))'
 run_case if-missing-then 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns i32) (do (if (condition (const_bool true)))))))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns i32) (do (if (condition (const_bool true)))))))'
 run_case if-then-no-do 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns i32) (do (if (condition (const_bool true)) (then))))))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns i32) (do (if (condition (const_bool true)) (then))))))'
 run_case if-missing-else 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns i32) (do (if (condition (const_bool true)) (then (do)))))))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns i32) (do (if (condition (const_bool true)) (then (do)))))))'
 run_case if-else-no-do 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns i32) (do (if (condition (const_bool true)) (then (do)) (else))))))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns i32) (do (if (condition (const_bool true)) (then (do)) (else))))))'
 run_case if-extra 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns i32) (do (if (condition (const_bool true)) (then (do)) (else (do)) junk)))))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns i32) (do (if (condition (const_bool true)) (then (do)) (else (do)) junk)))))'
 
 run_case while-no-condition 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns i32) (do (while)))))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns i32) (do (while)))))'
 run_case while-condition-empty 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns i32) (do (while (condition))))))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns i32) (do (while (condition))))))'
 run_case while-condition-extra 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns i32) (do (while (condition (const_bool true) (const_bool false)))))))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns i32) (do (while (condition (const_bool true) (const_bool false)))))))'
 run_case while-no-body 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns i32) (do (while (condition (const_bool true)))))))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns i32) (do (while (condition (const_bool true)))))))'
 run_case while-body-wrong 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns i32) (do (while (condition (const_bool true)) (then (do)))))))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns i32) (do (while (condition (const_bool true)) (then (do)))))))'
 
-run_case block-truncated 'error: parsing failed' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns i32) (do (return (const_i32 42))))'
+run_case do-truncated 'error: parsing failed' \
+  '(core-module (core-version 2) (decls (fn main (params) (returns i32) (do (return (const_i32 42))))'
 run_case unknown-stmt 'error: unknown operator' \
-  '(core-module (core-version 1) (decls (fn main (params) (returns i32) (do (bogus)))))'
+  '(core-module (core-version 2) (decls (fn main (params) (returns i32) (do (bogus)))))'
 
 printf '[structural-negative] all %d generated structural cases passed\n' \
   "$count" >&2

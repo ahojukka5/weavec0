@@ -60,7 +60,7 @@ entry:
 ; ----------------------------------------------------------------------------
 
 ; Validate the fixed token prefix:
-;   ( core-module ( core-version 1 ) ...
+;   ( core-module ( core-version 2 ) ...
 ; This is a pipeline-contract check, not general parsing.
 define i32 @weave_validate_core_version(ptr %tokens) {
 entry:
@@ -82,7 +82,7 @@ read_prefix:
   %ok3 = icmp eq i32 %kind3, 26
   %ok4 = icmp eq i32 %kind4, 4
   %ok5 = icmp eq i32 %kind5, 2
-  %version_ok = icmp eq i64 %version, 1
+  %version_ok = icmp eq i64 %version, 2
   %a = and i1 %ok0, %ok1
   %b = and i1 %ok2, %ok3
   %c = and i1 %ok4, %ok5
