@@ -380,30 +380,3 @@ not_equal:
   ret i32 0
 }
 
-define i32 @weave_slice_starts_with_cstr(ptr %src, i64 %src_len, ptr %pattern) {
-entry:
-  %pattern_null = icmp eq ptr %pattern, null
-  br i1 %pattern_null, label %no, label %measure
-
-measure:
-  %pattern_len = call i64 @strlen(ptr %pattern)
-  %empty_pattern = icmp eq i64 %pattern_len, 0
-  br i1 %empty_pattern, label %yes, label %check_source
-
-check_source:
-  %src_null = icmp eq ptr %src, null
-  %too_short = icmp ult i64 %src_len, %pattern_len
-  %invalid = or i1 %src_null, %too_short
-  br i1 %invalid, label %no, label %compare
-
-compare:
-  %cmp = call i32 @strncmp(ptr %src, ptr %pattern, i64 %pattern_len)
-  %matches = icmp eq i32 %cmp, 0
-  br i1 %matches, label %yes, label %no
-
-yes:
-  ret i32 1
-
-no:
-  ret i32 0
-}
