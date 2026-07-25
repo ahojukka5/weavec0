@@ -27,8 +27,9 @@
 ;   instruction).
 ;
 ; Boundary:
-;   No optimization, no verifier, no type checking. The emitter trusts the
-;   AST built by 06_parser.ll. Bool values are kept as i1 internally and
+;   No optimization and no general verifier. The emitter performs the small
+;   binding-scope validation required to emit well-formed LLVM, then trusts
+;   the remaining AST built by 06_parser.ll. Bool values are kept as i1 and
 ;   converted to / from i32 only at language boundaries. Pointers are kept
 ;   as `ptr` throughout — never round-tripped through ptrtoint.
 ;
@@ -49,10 +50,12 @@
 ;   ptr, ; out    : %weave.Buffer*
 ;   i64, ; temp counter
 ;   i64, ; label counter
-;   i32  ; current function return type token kind
+;   i32, ; current function return type token kind
+;   i64, ; current function AST range start, inclusive
+;   i64  ; current function AST range end, exclusive
 ; }
 
-%weave.EmitContext = type { ptr, ptr, ptr, i64, i64, i32 }
+%weave.EmitContext = type { ptr, ptr, ptr, i64, i64, i32, i64, i64 }
 
 ; ----------------------------------------------------------------------------
 ; Emit context accessors
@@ -94,6 +97,42 @@ entry:
   ret ptr %field
 }
 
+
+define ptr @weave_emit_function_start_ptr(ptr %ctx) {
+entry:
+  %field = getelementptr inbounds %weave.EmitContext, ptr %ctx, i32 0, i32 6
+  ret ptr %field
+}
+
+define ptr @weave_emit_function_end_ptr(ptr %ctx) {
+entry:
+  %field = getelementptr inbounds %weave.EmitContext, ptr %ctx, i32 0, i32 7
+  ret ptr %field
+}
+
+define i64 @weave_emit_function_start(ptr %ctx) {
+entry:
+  %field = call ptr @weave_emit_function_start_ptr(ptr %ctx)
+  %value = load i64, ptr %field
+  ret i64 %value
+}
+
+define i64 @weave_emit_function_end(ptr %ctx) {
+entry:
+  %field = call ptr @weave_emit_function_end_ptr(ptr %ctx)
+  %value = load i64, ptr %field
+  ret i64 %value
+}
+
+define void @weave_emit_set_function_range(ptr %ctx, i64 %start, i64 %end) {
+entry:
+  %start_field = call ptr @weave_emit_function_start_ptr(ptr %ctx)
+  %end_field = call ptr @weave_emit_function_end_ptr(ptr %ctx)
+  store i64 %start, ptr %start_field
+  store i64 %end, ptr %end_field
+  ret void
+}
+
 define ptr @weave_emit_source(ptr %ctx) {
 entry:
   %field = call ptr @weave_emit_source_ptr(ptr %ctx)
@@ -133,6 +172,7 @@ entry:
 ; weave_emit_context_init
 ; ----------------------------------------------------------------------------
 
+
 define void @weave_emit_context_init(ptr %ctx, ptr %source, ptr %ast, ptr %out) {
 entry:
   %source_field = call ptr @weave_emit_source_ptr(ptr %ctx)
@@ -141,6 +181,8 @@ entry:
   %temp_field = call ptr @weave_emit_temp_counter_ptr(ptr %ctx)
   %label_field = call ptr @weave_emit_label_counter_ptr(ptr %ctx)
   %return_type_field = call ptr @weave_emit_return_type_ptr(ptr %ctx)
+  %function_start_field = call ptr @weave_emit_function_start_ptr(ptr %ctx)
+  %function_end_field = call ptr @weave_emit_function_end_ptr(ptr %ctx)
 
   store ptr %source, ptr %source_field
   store ptr %ast, ptr %ast_field
@@ -148,8 +190,11 @@ entry:
   store i64 0, ptr %temp_field
   store i64 0, ptr %label_field
   store i32 32, ptr %return_type_field
+  store i64 -1, ptr %function_start_field
+  store i64 -1, ptr %function_end_field
   ret void
 }
+
 
 ; ----------------------------------------------------------------------------
 ; Text append helpers
@@ -353,7 +398,6 @@ entry:
 @weave.emit.current_param2_start = global i64 0
 @weave.emit.current_param2_len = global i64 0
 @weave.emit.current_param2_type = global i32 32
-@weave.emit.current_param_list = global i64 -1
 @weave.emit.puts_call = private unnamed_addr constant [28 x i8] c" = call i32 @puts(ptr @.str\00"
 
 ; ----------------------------------------------------------------------------
@@ -557,117 +601,184 @@ fail:
 ; ----------------------------------------------------------------------------
 
 
-define i32 @weave_emit_lookup_param_type(
-  ptr %ctx,
-  i64 %list_node,
-  i64 %name_start,
-  i64 %name_len
-) {
+
+
+define i32 @weave_emit_is_binding_kind(i32 %kind) {
 entry:
-  %empty = icmp slt i64 %list_node, 0
-  br i1 %empty, label %default_i32, label %check_prev
+  %is_param = icmp eq i32 %kind, 30
+  %is_let = icmp eq i32 %kind, 7
+  %is_binding = or i1 %is_param, %is_let
+  %result = zext i1 %is_binding to i32
+  ret i32 %result
+}
 
-check_prev:
+define i64 @weave_emit_find_function_start(ptr %ctx, i64 %function_node) {
+entry:
+  %has_previous = icmp sgt i64 %function_node, 0
+  br i1 %has_previous, label %prepare, label %zero
+
+prepare:
   %ast = call ptr @weave_emit_ast(ptr %ctx)
-  %param_node = call i64 @weave_ast_a(ptr %ast, i64 %list_node)
-  %prev_node = call i64 @weave_ast_b(ptr %ast, i64 %list_node)
-  %prev_type = call i32 @weave_emit_lookup_param_type(
-    ptr %ctx,
-    i64 %prev_node,
-    i64 %name_start,
-    i64 %name_len
-  )
-  %prev_found = icmp ne i32 %prev_type, 32
-  br i1 %prev_found, label %return_prev, label %check_current
+  %first = sub i64 %function_node, 1
+  br label %scan
 
-return_prev:
-  ret i32 %prev_type
+scan:
+  %index = phi i64 [%first, %prepare], [%previous, %continue]
+  %kind = call i32 @weave_ast_kind(ptr %ast, i64 %index)
+  %is_function = icmp eq i32 %kind, 2
+  %is_extern = icmp eq i32 %kind, 17
+  %is_separator = or i1 %is_function, %is_extern
+  br i1 %is_separator, label %after_separator, label %check_zero
 
-check_current:
-  %param_name_start = call i64 @weave_ast_text_start(ptr %ast, i64 %param_node)
-  %param_name_len = call i64 @weave_ast_text_len(ptr %ast, i64 %param_node)
+check_zero:
+  %at_zero = icmp eq i64 %index, 0
+  br i1 %at_zero, label %zero, label %continue
+
+continue:
+  %previous = sub i64 %index, 1
+  br label %scan
+
+after_separator:
+  %start = add i64 %index, 1
+  ret i64 %start
+
+zero:
+  ret i64 0
+}
+
+define i32 @weave_emit_nodes_same_name(ptr %ctx, i64 %lhs_node, i64 %rhs_node) {
+entry:
+  %ast = call ptr @weave_emit_ast(ptr %ctx)
   %source = call ptr @weave_emit_source(ptr %ctx)
   %data = call ptr @weave_source_data(ptr %source)
-  %name_text = getelementptr inbounds i8, ptr %data, i64 %name_start
-  %param_text = getelementptr inbounds i8, ptr %data, i64 %param_name_start
-  %matches = call i32 @weave_bytes_equal(
-    ptr %name_text,
-    i64 %name_len,
-    ptr %param_text,
-    i64 %param_name_len
+  %lhs_start = call i64 @weave_ast_text_start(ptr %ast, i64 %lhs_node)
+  %lhs_len = call i64 @weave_ast_text_len(ptr %ast, i64 %lhs_node)
+  %rhs_start = call i64 @weave_ast_text_start(ptr %ast, i64 %rhs_node)
+  %rhs_len = call i64 @weave_ast_text_len(ptr %ast, i64 %rhs_node)
+  %lhs_text = getelementptr inbounds i8, ptr %data, i64 %lhs_start
+  %rhs_text = getelementptr inbounds i8, ptr %data, i64 %rhs_start
+  %same = call i32 @weave_bytes_equal(
+    ptr %lhs_text,
+    i64 %lhs_len,
+    ptr %rhs_text,
+    i64 %rhs_len
   )
-  %is_match = icmp ne i32 %matches, 0
-  br i1 %is_match, label %return_current, label %default_i32
+  ret i32 %same
+}
 
-return_current:
-  %param_type_wide = call i64 @weave_ast_a(ptr %ast, i64 %param_node)
-  %param_type = trunc i64 %param_type_wide to i32
-  ret i32 %param_type
+define i32 @weave_emit_validate_bindings(ptr %ctx, i64 %start, i64 %end) {
+entry:
+  %ast = call ptr @weave_emit_ast(ptr %ctx)
+  br label %outer
 
-default_i32:
-  ret i32 32
+outer:
+  %i = phi i64 [%start, %entry], [%next_i, %outer_continue]
+  %outer_done = icmp uge i64 %i, %end
+  br i1 %outer_done, label %success, label %outer_kind
+
+outer_kind:
+  %kind_i = call i32 @weave_ast_kind(ptr %ast, i64 %i)
+  %binding_i_status = call i32 @weave_emit_is_binding_kind(i32 %kind_i)
+  %binding_i = icmp ne i32 %binding_i_status, 0
+  br i1 %binding_i, label %inner_prepare, label %outer_continue
+
+inner_prepare:
+  %first_j = add i64 %i, 1
+  br label %inner
+
+inner:
+  %j = phi i64 [%first_j, %inner_prepare], [%next_j, %inner_continue]
+  %inner_done = icmp uge i64 %j, %end
+  br i1 %inner_done, label %outer_continue, label %inner_kind
+
+inner_kind:
+  %kind_j = call i32 @weave_ast_kind(ptr %ast, i64 %j)
+  %binding_j_status = call i32 @weave_emit_is_binding_kind(i32 %kind_j)
+  %binding_j = icmp ne i32 %binding_j_status, 0
+  br i1 %binding_j, label %compare, label %inner_continue
+
+compare:
+  %same_status = call i32 @weave_emit_nodes_same_name(
+    ptr %ctx,
+    i64 %i,
+    i64 %j
+  )
+  %same = icmp ne i32 %same_status, 0
+  br i1 %same, label %fail, label %inner_continue
+
+inner_continue:
+  %next_j = add i64 %j, 1
+  br label %inner
+
+outer_continue:
+  %next_i = add i64 %i, 1
+  br label %outer
+
+success:
+  ret i32 0
+
+fail:
+  ret i32 1
 }
 
 define i32 @weave_emit_lookup_local_type(ptr %ctx, i64 %name_start, i64 %name_len) {
 entry:
+  %start = call i64 @weave_emit_function_start(ptr %ctx)
+  %end = call i64 @weave_emit_function_end(ptr %ctx)
+  %start_valid = icmp sge i64 %start, 0
+  %end_valid = icmp sge i64 %end, 0
+  %ordered = icmp ule i64 %start, %end
+  %bounds_valid = and i1 %start_valid, %end_valid
+  %scope_valid = and i1 %bounds_valid, %ordered
+  br i1 %scope_valid, label %prepare, label %not_found
+
+prepare:
   %ast = call ptr @weave_emit_ast(ptr %ctx)
-  %count = call i64 @weave_ast_count(ptr %ast)
-  br label %loop
-
-loop:
-  %i = phi i64 [0, %entry], [%next_i, %after_node]
-  %found = phi i32 [32, %entry], [%found_next, %after_node]
-  %done = icmp uge i64 %i, %count
-  br i1 %done, label %success, label %check_node
-
-check_node:
-  %kind = call i32 @weave_ast_kind(ptr %ast, i64 %i)
-  %is_let = icmp eq i32 %kind, 7
-  br i1 %is_let, label %check_name, label %after_node
-
-check_name:
-  %let_name_start = call i64 @weave_ast_text_start(ptr %ast, i64 %i)
-  %let_name_len = call i64 @weave_ast_text_len(ptr %ast, i64 %i)
   %source = call ptr @weave_emit_source(ptr %ctx)
   %data = call ptr @weave_source_data(ptr %source)
   %name_text = getelementptr inbounds i8, ptr %data, i64 %name_start
-  %let_text = getelementptr inbounds i8, ptr %data, i64 %let_name_start
-  %matches = call i32 @weave_bytes_equal(
+  br label %loop
+
+loop:
+  %i = phi i64 [%start, %prepare], [%next_i, %continue]
+  %done = icmp uge i64 %i, %end
+  br i1 %done, label %not_found, label %check_kind
+
+check_kind:
+  %kind = call i32 @weave_ast_kind(ptr %ast, i64 %i)
+  %is_param = icmp eq i32 %kind, 30
+  %is_let = icmp eq i32 %kind, 7
+  %is_binding = or i1 %is_param, %is_let
+  br i1 %is_binding, label %check_name, label %continue
+
+check_name:
+  %binding_start = call i64 @weave_ast_text_start(ptr %ast, i64 %i)
+  %binding_len = call i64 @weave_ast_text_len(ptr %ast, i64 %i)
+  %binding_text = getelementptr inbounds i8, ptr %data, i64 %binding_start
+  %same_status = call i32 @weave_bytes_equal(
     ptr %name_text,
     i64 %name_len,
-    ptr %let_text,
-    i64 %let_name_len
+    ptr %binding_text,
+    i64 %binding_len
   )
-  %is_match = icmp ne i32 %matches, 0
-  br i1 %is_match, label %record, label %after_node
+  %same = icmp ne i32 %same_status, 0
+  br i1 %same, label %return_type, label %continue
 
-record:
+return_type:
+  %param_type_wide = call i64 @weave_ast_a(ptr %ast, i64 %i)
   %let_type_wide = call i64 @weave_ast_b(ptr %ast, i64 %i)
-  %let_type = trunc i64 %let_type_wide to i32
-  br label %after_node
+  %type_wide = select i1 %is_param, i64 %param_type_wide, i64 %let_type_wide
+  %type_kind = trunc i64 %type_wide to i32
+  ret i32 %type_kind
 
-after_node:
-  %found_next = phi i32 [ %found, %check_node ], [ %found, %check_name ], [ %let_type, %record ]
+continue:
   %next_i = add i64 %i, 1
   br label %loop
 
-success:
-  %found_local = icmp ne i32 %found, 32
-  br i1 %found_local, label %return_found, label %check_params
-
-return_found:
-  ret i32 %found
-
-check_params:
-  %param_list = load i64, ptr @weave.emit.current_param_list
-  %param_type = call i32 @weave_emit_lookup_param_type(
-    ptr %ctx,
-    i64 %param_list,
-    i64 %name_start,
-    i64 %name_len
-  )
-  ret i32 %param_type
+not_found:
+  ret i32 -1
 }
+
 
 ; ----------------------------------------------------------------------------
 ; Value representation
@@ -1421,10 +1532,13 @@ entry:
   %ast = call ptr @weave_emit_ast(ptr %ctx)
   %name_start = call i64 @weave_ast_text_start(ptr %ast, i64 %node_index)
   %name_len = call i64 @weave_ast_text_len(ptr %ast, i64 %node_index)
-  %temp = call i64 @weave_emit_next_temp(ptr %ctx)
   %type_kind = call i32 @weave_emit_lookup_local_type(ptr %ctx, i64 %name_start, i64 %name_len)
-  %is_ptr = icmp eq i32 %type_kind, 58
+  %missing = icmp eq i32 %type_kind, -1
+  br i1 %missing, label %fail, label %emit
 
+emit:
+  %temp = call i64 @weave_emit_next_temp(ptr %ctx)
+  %is_ptr = icmp eq i32 %type_kind, 58
   %s0 = call i32 @weave_emit_cstr(ptr %ctx, ptr @weave.emit.indent_tmp)
   %temp_i32 = trunc i64 %temp to i32
   %s1 = call i32 @weave_emit_i32(ptr %ctx, i32 %temp_i32)
@@ -3584,6 +3698,17 @@ fail:
 
 define i32 @weave_emit_function(ptr %ctx, i64 %node_index) {
 entry:
+  %function_start = call i64 @weave_emit_find_function_start(ptr %ctx, i64 %node_index)
+  call void @weave_emit_set_function_range(ptr %ctx, i64 %function_start, i64 %node_index)
+  %binding_status = call i32 @weave_emit_validate_bindings(
+    ptr %ctx,
+    i64 %function_start,
+    i64 %node_index
+  )
+  %bindings_failed = icmp ne i32 %binding_status, 0
+  br i1 %bindings_failed, label %fail, label %prepare
+
+prepare:
   %ast = call ptr @weave_emit_ast(ptr %ctx)
   %body_node = call i64 @weave_ast_a(ptr %ast, i64 %node_index)
   %param_wrapper = call i64 @weave_ast_b(ptr %ast, i64 %node_index)
@@ -3633,7 +3758,6 @@ emit_name:
   %s0 = phi i32 [%s0_i32, %emit_i32_define], [%s0_i64, %emit_i64_define], [%s0_ptr, %emit_ptr_define], [%s0_void, %emit_void_define], [%s0_bool, %emit_bool_define]
   %s1 = call i32 @weave_emit_source_slice(ptr %ctx, i64 %name_start, i64 %name_len)
   %has_param = icmp ne i64 %param_count, 0
-  store i64 %param_list, ptr @weave.emit.current_param_list
   br i1 %has_param, label %emit_param_sig, label %emit_no_param_sig
 
 emit_no_param_sig:
@@ -3683,9 +3807,11 @@ close:
   br i1 %close_failed, label %fail, label %success
 
 success:
+  call void @weave_emit_set_function_range(ptr %ctx, i64 -1, i64 -1)
   ret i32 0
 
 fail:
+  call void @weave_emit_set_function_range(ptr %ctx, i64 -1, i64 -1)
   ret i32 1
 }
 

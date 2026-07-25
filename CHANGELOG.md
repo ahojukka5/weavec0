@@ -8,6 +8,33 @@ stages consume published SDKs.
 
 ## [Unreleased]
 
+## [0.3.3] — 2026-07-25
+
+### Added
+
+- A function-binding regression ladder covering cross-function same-name
+  locals, exact i32 parameter lookup, undefined local and parameter reads,
+  duplicate parameters, duplicate locals, and parameter/local shadowing.
+- The same binding workload is included in the instrumented LLVM coverage
+  extension.
+
+### Changed
+
+- Emitter context now carries the active function's AST interval. Binding type
+  lookup is restricted to that interval and uses `-1` as an explicit not-found
+  result distinct from every valid WIR type.
+- Stage 0 defines a no-shadowing rule within a function: parameter names and
+  local names must be unique across the whole function body.
+
+### Fixed
+
+- A local in a later function can no longer change the load type emitted for an
+  earlier same-named local.
+- Undefined `local_get` and `param_get` expressions now fail deterministically
+  instead of silently falling back to i32.
+- Duplicate parameters, duplicate locals, and parameter/local collisions are
+  rejected before function LLVM text is emitted.
+
 ## [0.3.2] — 2026-07-25
 
 ### Added
