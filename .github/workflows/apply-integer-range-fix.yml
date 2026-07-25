@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: Apache-2.0
+name: apply integer range fix
+
+on:
+  push:
+    branches:
+      - agent/reject-out-of-range-integers
+    paths:
+      - scripts/apply-integer-range-fix.py
+      - .github/workflows/apply-integer-range-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install LLVM toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm clang
+
+      - name: Apply, validate, commit, and push
+        run: python3 scripts/apply-integer-range-fix.py
