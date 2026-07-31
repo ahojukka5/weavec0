@@ -78,12 +78,70 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  build-macos:
+    name: macOS (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+          - os: macos-15-intel
+            arch: x86_64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install LLVM toolchain
+        run: |
+          brew install llvm
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+
+      - name: Show toolchain versions
+        run: |
+          clang --version
+          llvm-as --version
+          llvm-link --version
+
+      - name: Run complete WIR and CLI ladders
+        run: bash scripts/run-tests.sh
+
+      - name: Select archive version
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            version="$GITHUB_REF_NAME"
+          elif [[ "$GITHUB_REF" == refs/heads/master ]]; then
+            version="v$(tr -d '[:space:]' < VERSION)"
+          else
+            version="git-${GITHUB_SHA::12}"
+          fi
+          printf 'value=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build macOS SDK archive
+        run: |
+          scripts/package-macos-release.sh \
+            "${{ steps.version.outputs.value }}" \
+            dist
+
+      - name: Upload SDK archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: weavec0-macos-${{ matrix.arch }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
   publish-release:
     name: Publish GitHub Release
     if: >-
       startsWith(github.ref, 'refs/tags/v') ||
       (github.event_name == 'push' && github.ref == 'refs/heads/master')
-    needs: build-linux
+    needs: [build-linux, build-macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -125,7 +183,7 @@ jobs:
           steps.release.outputs.replace == 'true'
         uses: actions/download-artifact@v4
         with:
-          pattern: weavec0-linux-x86_64-*
+          pattern: weavec0-*
           path: dist
           merge-multiple: true
 
