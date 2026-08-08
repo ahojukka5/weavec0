@@ -1,11 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# Continuous integration for weavec0.
-#
-# The normal matrix builds and executes the full WIR correctness/golden ladder
-# plus process-level CLI tests on Linux and macOS. A separate Linux audit job
-# measures the linked handwritten LLVM implementation against the test corpus,
-# CLI error paths, and the pinned weavec1 production corpus.
+# Continuous integration for weavec0 on the portfolio's self-hosted Linux
+# runner fleet. The historical GitHub-hosted macOS leg is intentionally not
+# emulated on Linux.
 
 name: ci
 
@@ -17,12 +14,9 @@ on:
 
 jobs:
   test:
-    name: build & test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
+    name: build & test (linux)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: self-hosted
 
     steps:
       - name: Checkout
@@ -31,25 +25,11 @@ jobs:
       - name: Check documentation
         run: python3 scripts/check_docs.py
 
-      - name: Install LLVM toolchain (Linux)
-        if: runner.os == 'Linux'
+      - name: Install LLVM toolchain
         run: |
           sudo apt-get update
           sudo apt-get install -y llvm clang
           echo "Tool versions:"
-          clang --version
-          llvm-as --version
-          llvm-link --version
-
-      - name: Install LLVM toolchain (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install llvm
-          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
-
-      - name: Verify toolchain (macOS)
-        if: runner.os == 'macOS'
-        run: |
           clang --version
           llvm-as --version
           llvm-link --version
@@ -59,7 +39,8 @@ jobs:
 
   coverage:
     name: LLVM path & bootstrap-surface audit
-    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: self-hosted
     env:
       WEAVEC0_MIN_FUNCTION_COVERAGE: "95"
       WEAVEC0_MIN_BLOCK_COVERAGE: "87"
