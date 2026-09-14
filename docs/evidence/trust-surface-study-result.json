@@ -1,0 +1,111 @@
+{
+  "arm_identities": {
+    "broader": {
+      "runtime_source_sha256": "6d11254ae650b3327f14c863c225f65cd9d19f7fba302f8e43bbcee1c87f4e86",
+      "stage0_binary_sha256": "a239059430678514471796746890f12b0bbc5ee7ae7b4497e433fa35824026b8",
+      "stage0_revision": "c720014d35d21ba0ed1a38c9645e566b37b4dfbe",
+      "stage0_source_tree_sha256": "a09494dfedae0a4c05ceb3ab39b5e85086243c17654062fa9242b243437b8c61",
+      "weavec1_selfhost_sha256": "3f6195a285bb7e46e66fdca2cb5e466a2e82b5088d5121cf4f12c63acf85ff32",
+      "weavec1_sha256": "daf2923ecc7767ab23fa71d3462bb3ffc973a077c55d213197cef77b48425b09"
+    },
+    "minimized": {
+      "runtime_source_sha256": "6d11254ae650b3327f14c863c225f65cd9d19f7fba302f8e43bbcee1c87f4e86",
+      "stage0_binary_sha256": "88cf7f68503915daf6b64cda96b480734018cc4d7621a126f5a310b831f2f067",
+      "stage0_revision": "a0aeb3919cdeec1e47a931fdfa7dc660a78567ff",
+      "stage0_source_tree_sha256": "60e9dfb9ac08e6e90f28eae9308ac960af4187a00b0c0fd1dcb07318b08ce6ab",
+      "weavec1_selfhost_sha256": "79141f652397f688d30efa1c9d96e95d412978ed665f991e1c2fcc79c56b9cbc",
+      "weavec1_sha256": "040d2547601cca3218e216310823e9af2d9906cce33faa80c2ce510250a16bd0"
+    }
+  },
+  "date": "2026-09-14",
+  "implementation_issue": "ahojukka5/weavec0#35",
+  "interpretation_limits": [
+    "The same binary byte size is not evidence of binary identity; Stage 0 binary hashes differ.",
+    "Historical Stage 1 source fallback links Stage 0 bootstrap bitcode, so Stage 1 and self-host binary hashes differ even though generated Stage 1, self-host, and test LLVM are byte-identical.",
+    "The result is a bounded case study of compiler-specific seed surface, not a formal security proof or full host-tool trust reduction."
+  ],
+  "protocol": {
+    "broader_revision": "c720014d35d21ba0ed1a38c9645e566b37b4dfbe",
+    "minimized_revision": "a0aeb3919cdeec1e47a931fdfa7dc660a78567ff",
+    "pinned_weavec1_commit": "963bd99a62b2db0482817ba49bcdbc02e624a20a",
+    "stage1_source_fallback_forced": true,
+    "stage1_source_fallback_method": "PATH-local uname reports an unsupported host so the historical build uses its documented WEAVEC0 source-tree fallback"
+  },
+  "research_issue": "ahojukka5/research#331",
+  "schema": "weavec0-trust-surface-result-v1",
+  "stage1_comparison": {
+    "both_builds_succeeded": true,
+    "selfhost_source_llvm_equal": true,
+    "source_llvm_equal": true,
+    "test_llvm_equal": true,
+    "weavec1_binary_equal": false,
+    "weavec1_selfhost_binary_equal": false
+  },
+  "surface_deltas": {
+    "added_wir_keywords": [],
+    "compiler_binary_bytes": {
+      "broader": 89664,
+      "delta": 0,
+      "fractional_change": 0.0,
+      "minimized": 89664
+    },
+    "llvm_basic_block_count": {
+      "broader": 1489,
+      "delta": -26,
+      "fractional_change": -0.017461383478844864,
+      "minimized": 1463
+    },
+    "llvm_function_count": {
+      "broader": 230,
+      "delta": 0,
+      "fractional_change": 0.0,
+      "minimized": 230
+    },
+    "llvm_noncomment_loc": {
+      "broader": 7469,
+      "delta": -140,
+      "fractional_change": -0.01874414245548266,
+      "minimized": 7329
+    },
+    "llvm_source_bytes": {
+      "broader": 353230,
+      "delta": -5644,
+      "fractional_change": -0.015978257792373243,
+      "minimized": 347586
+    },
+    "removed_wir_keywords": [
+      "block",
+      "const_string",
+      "ge_i64",
+      "gt_i64",
+      "print"
+    ],
+    "required_host_tools_unchanged": true,
+    "runtime_abi_function_count": {
+      "broader": 5,
+      "delta": 0,
+      "fractional_change": 0.0,
+      "minimized": 5
+    },
+    "runtime_header_unchanged": true,
+    "runtime_source_bytes": {
+      "broader": 2654,
+      "delta": 0,
+      "fractional_change": 0.0,
+      "minimized": 2654
+    },
+    "runtime_source_unchanged": true,
+    "wir_keyword_count": {
+      "broader": 75,
+      "delta": -5,
+      "fractional_change": -0.06666666666666667,
+      "minimized": 70
+    }
+  },
+  "workflow": {
+    "artifact_digest": "sha256:a62ff851fffc6595ba84b0586a97e3744e97359121855b38ae8b5dfc618a2d36",
+    "artifact_id": 10348708713,
+    "head_sha": "640edea5de3ff910956e381bdc331e959d1b1d45",
+    "run_id": 34848568277
+  }
+}
