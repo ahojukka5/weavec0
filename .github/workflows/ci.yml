@@ -72,6 +72,9 @@ jobs:
       - name: Check documentation
         run: python3 scripts/check_docs.py
 
+      - name: Test trust-surface metric extraction
+        run: python3 scripts/test_trust_surface_metrics.py
+
       - name: Install LLVM toolchain
         run: |
           sudo apt-get update
