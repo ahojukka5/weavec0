@@ -234,9 +234,10 @@ spelling.
 
 ## Releases
 
-The release workflow builds glibc and musl SDKs, runs the full ladder, verifies
-the exact minimal archive layout and static linkage, performs compile-link-run
-smoke tests, creates checksums, and publishes `.tar.gz` archives.
+The release workflow builds glibc and musl SDKs after merge, verifies the
+exact minimal archive layout and static linkage, performs compile-link-run
+smoke tests, creates checksums, and publishes `.tar.gz` archives. A `v*` tag
+also runs the complete source ladder before packaging.
 
 A push to `master` creates `v<VERSION>` when that release does not already
 exist. Existing version releases remain immutable.

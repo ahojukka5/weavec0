@@ -55,13 +55,14 @@ generated modules with the matching runtime library.
 
 ## Automatic release flow
 
-`.github/workflows/release.yml` runs for pull requests, pushes to `master`,
-manual dispatches, and explicit `v*` tags.
+`.github/workflows/release.yml` runs for pushes to `master`, manual
+dispatches, and explicit `v*` tags. Pull-request correctness stays in `ci.yml`.
 
 Every glibc and musl build:
 
 1. installs LLVM, Clang, binutils, and musl tools;
-2. runs the complete `./build.sh` correctness and golden ladder;
+2. builds the compiler (`./build.sh`), and on a `v*` tag also runs the
+   complete `scripts/run-tests.sh` ladder;
 3. creates the fully static compiler executable;
 4. creates the matching static runtime library;
 5. verifies every documented runtime ABI symbol;
