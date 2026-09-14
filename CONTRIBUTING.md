@@ -49,8 +49,10 @@ the stable bootstrap chain actually requires.
 8. Open a pull request.
 
 CI validates documentation consistency and the source build on Linux and macOS.
-The release workflow also builds glibc and musl SDKs, rejects dynamically linked
-compiler executables, and runs SDK-only smoke tests.
+The release workflow is not a pull-request gate. After merge it packages glibc
+and musl SDKs, rejects dynamically linked compiler executables, and runs
+SDK-only smoke tests. A `v*` tag still runs the complete source ladder before
+packaging.
 
 ## SDK-affecting changes
 

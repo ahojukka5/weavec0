@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 name: release
 
+# Release packaging is post-merge/release infrastructure. Ordinary compiler
+# correctness on pull requests is covered by ci.yml.
 on:
   push:
     branches: [master]
     tags: ["v*"]
-  pull_request:
-    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -47,8 +47,16 @@ jobs:
           llvm-link --version
           musl-gcc --version
 
-      - name: Run complete WIR and CLI ladders
-        run: bash scripts/run-tests.sh
+      # On a master push, ci.yml already runs the full ladder on this commit.
+      # Repeating it here before packaging verifies nothing new. A tag is what
+      # actually gets published, so it is verified independently.
+      - name: Build compiler, and run the full ladder for a release tag
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            bash scripts/run-tests.sh
+          else
+            ./build.sh
+          fi
 
       - name: Select archive version
         id: version
@@ -106,8 +114,15 @@ jobs:
           llvm-as --version
           llvm-link --version
 
-      - name: Run complete WIR and CLI ladders
-        run: bash scripts/run-tests.sh
+      # See the Linux job: master packaging reuses the compiler build, while a
+      # release tag still runs the complete ladder independently.
+      - name: Build compiler, and run the full ladder for a release tag
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            bash scripts/run-tests.sh
+          else
+            ./build.sh
+          fi
 
       - name: Select archive version
         id: version

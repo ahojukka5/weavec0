@@ -15,6 +15,9 @@ stages consume published SDKs.
 
 ### Changed
 
+- The release workflow is no longer a pull-request gate. Master packaging
+  builds the compiler and packages SDKs; the complete source ladder still runs
+  on `v*` tags.
 - Standardized maintained files under `docs/` on lowercase kebab-case names.
 - Replaced the obsolete speculative WIR essay with the current WIR v2 bootstrap
   profile contract and pointed the bootstrap-surface audit at that canonical
