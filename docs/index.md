@@ -14,6 +14,8 @@ and the evidence used to keep the implementation small.
   removed.
 - [Coverage](coverage.md) — function, basic-block, branch-outcome, and bootstrap
   surface measurements.
+- [Historical trusted-surface study](trust-surface-study.md) — frozen comparison
+  of the broader and corpus-constrained Stage 0 seeds used as research evidence.
 - [Bootstrap SDK](bootstrap-sdk.md) — published binary boundary consumed by
   `weavec1`.
 - [Source style](source-style.md) — conventions for the hand-written LLVM IR.

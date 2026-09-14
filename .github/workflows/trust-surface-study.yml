@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: Apache-2.0
+name: trust-surface-study
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [master]
+    paths:
+      - .github/workflows/trust-surface-study.yml
+      - scripts/trust_surface_metrics.py
+      - scripts/run_trust_surface_study.py
+      - scripts/test_trust_surface_metrics.py
+      - docs/trust-surface-study.md
+
+jobs:
+  historical-comparison:
+    name: historical Stage 0 trust-surface comparison
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout weavec0 history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install LLVM toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm clang
+          clang --version
+          llvm-as --version
+          llvm-link --version
+
+      - name: Fetch pinned weavec1 history
+        run: |
+          commit="$(git show c720014d35d21ba0ed1a38c9645e566b37b4dfbe:WEAVEC1_BOOTSTRAP_COMMIT)"
+          git clone --filter=blob:none --no-checkout \
+            https://github.com/ahojukka5/weavec1.git build/weavec1-study
+          git -C build/weavec1-study fetch origin "$commit"
+          git -C build/weavec1-study cat-file -e "$commit^{commit}"
+
+      - name: Test metric extraction
+        run: python3 scripts/test_trust_surface_metrics.py
+
+      - name: Run frozen historical comparison
+        run: |
+          python3 scripts/run_trust_surface_study.py \
+            --weavec1-repo build/weavec1-study \
+            --output build/trust-surface-study/result.json
+
+      - name: Upload research evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: weavec0-trust-surface-study
+          path: |
+            build/trust-surface-study/result.json
+            build/trust-surface-study/*-stage0-build.log
+            build/trust-surface-study/*-stage1-build.log
