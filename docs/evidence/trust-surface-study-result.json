@@ -31,7 +31,6 @@
     "stage1_source_fallback_forced": true,
     "stage1_source_fallback_method": "PATH-local uname reports an unsupported host so the historical build uses its documented WEAVEC0 source-tree fallback"
   },
-  "research_issue": "ahojukka5/research#331",
   "schema": "weavec0-trust-surface-result-v1",
   "stage1_comparison": {
     "both_builds_succeeded": true,

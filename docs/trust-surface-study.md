@@ -1,7 +1,7 @@
 # Historical trusted-surface study
 
 This repository contains a bounded research audit for the Stage 0 minimization
-studied by `ahojukka5/research#331` and implemented under `weavec0#35`.
+studied by `` and implemented under `weavec0#35`.
 
 The experiment compares two immutable Stage 0 revisions against the same pinned
 Stage 1 source corpus:
