@@ -12,6 +12,8 @@ stages consume published SDKs.
 
 - A documentation index, a dedicated Stage 0 architecture document, and an
   automated audit for lowercase documentation names and valid local links.
+- Documented the macOS arm64 and x86_64 Stage 0 SDK archives already published
+  on `v0.4.0`. Linux archives stay fully static; macOS archives link libSystem.
 
 ### Changed
 
