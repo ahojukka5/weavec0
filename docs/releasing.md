@@ -1,8 +1,8 @@
 # Releasing weavec0
 
-`weavec0` publishes versioned Linux x86-64 Stage 0 SDKs for glibc and musl. The
-SDK is the supported binary input for `weavec1` and other downstream bootstrap
-consumers.
+`weavec0` publishes versioned Stage 0 SDKs for Linux x86-64 glibc and musl, and
+for macOS arm64 and x86_64. The SDK is the supported binary input for `weavec1`
+and other downstream bootstrap consumers.
 
 ## SDK contents
 
@@ -38,6 +38,8 @@ A normal release contains:
 ```text
 weavec0-vX.Y.Z-linux-x86_64-glibc.tar.gz
 weavec0-vX.Y.Z-linux-x86_64-musl.tar.gz
+weavec0-vX.Y.Z-macos-arm64.tar.gz
+weavec0-vX.Y.Z-macos-x86_64.tar.gz
 SHA256SUMS
 ```
 
@@ -72,8 +74,9 @@ Every glibc and musl build:
 9. uploads the versioned `.tar.gz` archive.
 
 For a push to `master`, the publish job reads `VERSION`. When the corresponding
-`v<VERSION>` release does not exist, the workflow creates it and uploads both
-SDK archives plus `SHA256SUMS`. Existing VERSION releases are left unchanged.
+`v<VERSION>` release does not exist, the workflow creates it and uploads the
+Linux and macOS SDK archives plus `SHA256SUMS`. Existing VERSION releases are
+left unchanged.
 
 An explicit `v*` tag rebuilds the tag and replaces its assets. This path is
 reserved for repairing a broken release workflow or damaged release assets.
@@ -99,11 +102,14 @@ Create either SDK archive using the version selected by `VERSION`:
 version="v$(tr -d '[:space:]' < VERSION)"
 bash scripts/package-linux-release.sh glibc "$version" dist
 bash scripts/package-linux-release.sh musl "$version" dist
+bash scripts/package-macos-release.sh "$version" dist
 ```
 
-The packaging script verifies the exact archive contents, runtime ABI, static
-linkage, compiler output, and executable behavior before writing the result
-under `dist/`.
+`package-linux-release.sh` builds one libc variant. `package-macos-release.sh`
+packages the host architecture, `arm64` or `x86_64`. Each script verifies the
+exact archive contents, runtime ABI, linkage, compiler output, and executable
+behavior before writing the result under `dist/`. Linux packages are fully
+static. The macOS package may depend only on `/usr/lib/libSystem.B.dylib`.
 
 ## Verifying a downloaded release
 

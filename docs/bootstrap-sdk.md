@@ -5,7 +5,7 @@ next compiler stage build without cloning or rebuilding `weavec0`.
 
 ## Archive contract
 
-Each Linux archive contains exactly:
+Each Linux and macOS archive contains exactly:
 
 ```text
 bin/weavec0
@@ -34,15 +34,19 @@ from the supported archive contract.
 
 ## Platform variants
 
-Two x86-64 Linux variants are published:
+Four archives are published:
 
-- `glibc`: statically linked against glibc;
-- `musl`: statically linked against musl.
+- `linux-x86_64-glibc`: statically linked against glibc;
+- `linux-x86_64-musl`: statically linked against musl;
+- `macos-arm64`: linked only against `/usr/lib/libSystem.B.dylib`;
+- `macos-x86_64`: linked only against `/usr/lib/libSystem.B.dylib`.
 
 The compiler variants implement the same WIR contract and should emit
 byte-identical LLVM IR for the same input. The runtime libraries are
-libc-specific, so a consumer must keep the compiler and runtime from one archive
-together.
+platform-specific, so a consumer must keep the compiler and runtime from one
+archive together. Linux archive names are
+`weavec0-vX.Y.Z-linux-x86_64-<libc>.tar.gz`. macOS archive names are
+`weavec0-vX.Y.Z-macos-<arch>.tar.gz`.
 
 ## Validation
 
@@ -52,7 +56,7 @@ the packaged compiler in a compile–assemble–static-link–run smoke test bef
 creating the archive.
 
 The release workflow reads `VERSION`. When `master` contains a version for which
-no GitHub Release exists, it creates tag `v<VERSION>` and publishes both SDK
-archives together with `SHA256SUMS`.
+no GitHub Release exists, it creates tag `v<VERSION>` and publishes the Linux
+and macOS SDK archives together with `SHA256SUMS`.
 
 See [architecture](architecture.md) and [releasing](releasing.md).

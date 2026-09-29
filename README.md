@@ -32,7 +32,8 @@ small, auditable, deterministic, and capable of building `weavec1`.
   line compiler and the pinned Stage 1 corpus.
 - CI enforces conservative coverage non-regression floors and publishes a
   machine-readable bootstrap-surface report.
-- Minimal Linux x86-64 SDKs are published for glibc and musl.
+- Published SDKs cover Linux x86-64 glibc and musl, plus macOS arm64 and
+  x86_64.
 - `weavec1` uses `weavec0` only as a build-time compiler and does not embed the
   Stage 0 implementation in Stage 1 binaries.
 - WIR core version 2 and the runtime ABI are versioned bootstrap contracts.
@@ -94,6 +95,11 @@ weavec0-vX.Y.Z-linux-x86_64-<libc>/
 Stage 0 compiler implementation objects and bitcode are deliberately not part
 of the SDK. The generated Stage 1 compiler is linked from its own generated
 modules and the matching runtime; it does not embed Stage 0.
+
+Linux archives are named `weavec0-vX.Y.Z-linux-x86_64-<libc>/`. macOS archives
+are named `weavec0-vX.Y.Z-macos-<arch>/` and contain the same files. Linux
+compiler executables are fully static. macOS executables link only
+`/usr/lib/libSystem.B.dylib`.
 
 The glibc and musl archives implement the same compiler contract but contain
 different runtime implementations. A consumer must verify the archive against
@@ -222,7 +228,8 @@ Source style is documented in
 - WIR is intentionally small and explicit.
 - Diagnostics are compact and mostly lack precise source ranges.
 - The admitted extern set is fixed and versioned.
-- Published SDKs currently target Linux x86-64 only.
+- Hosts other than Linux x86-64 and macOS arm64 or x86_64 build Stage 0 from
+  source.
 - `const_string_ptr` is supported only in the direct call-argument shape covered
   by `test/29_const_string_ptr.wir`.
 
@@ -234,10 +241,10 @@ spelling.
 
 ## Releases
 
-The release workflow builds glibc and musl SDKs after merge, verifies the
-exact minimal archive layout and static linkage, performs compile-link-run
-smoke tests, creates checksums, and publishes `.tar.gz` archives. A `v*` tag
-also runs the complete source ladder before packaging.
+The release workflow builds Linux glibc and musl SDKs and macOS arm64 and
+x86_64 SDKs after merge, verifies the exact minimal archive layout, performs
+compile-link-run smoke tests, creates checksums, and publishes `.tar.gz`
+archives. A `v*` tag also runs the complete source ladder before packaging.
 
 A push to `master` creates `v<VERSION>` when that release does not already
 exist. Existing version releases remain immutable.
